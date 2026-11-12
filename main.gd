@@ -34,10 +34,13 @@ var pause_button: Button
 var selected_car := 0
 var car_paints: Array[Color] = [Color(0.025, 0.24, 0.48), Color(0.62, 0.045, 0.035), Color(0.035, 0.045, 0.06)]
 var engine_player: AudioStreamPlayer
+var exhaust_player: AudioStreamPlayer
 var tire_player: AudioStreamPlayer
 var engine_playback: AudioStreamGeneratorPlayback
+var exhaust_playback: AudioStreamGeneratorPlayback
 var tire_playback: AudioStreamGeneratorPlayback
 var engine_phase := 0.0
+var exhaust_phase := 0.0
 var tire_phase := 0.0
 const AUDIO_RATE := 22050.0
 
@@ -604,6 +607,17 @@ func _setup_vehicle_audio() -> void:
 	engine_player.play()
 	engine_playback = engine_player.get_stream_playback() as AudioStreamGeneratorPlayback
 
+	var exhaust_stream := AudioStreamGenerator.new()
+	exhaust_stream.mix_rate = int(AUDIO_RATE)
+	exhaust_stream.buffer_length = 0.18
+	exhaust_player = AudioStreamPlayer.new()
+	exhaust_player.name = "CHINOCK_ExhaustAudio"
+	exhaust_player.stream = exhaust_stream
+	exhaust_player.volume_db = -80.0
+	car.add_child(exhaust_player)
+	exhaust_player.play()
+	exhaust_playback = exhaust_player.get_stream_playback() as AudioStreamGeneratorPlayback
+
 	var tire_stream := AudioStreamGenerator.new()
 	tire_stream.mix_rate = int(AUDIO_RATE)
 	tire_stream.buffer_length = 0.18
@@ -616,7 +630,7 @@ func _setup_vehicle_audio() -> void:
 	tire_playback = tire_player.get_stream_playback() as AudioStreamGeneratorPlayback
 
 func _update_vehicle_audio(_delta: float) -> void:
-	if engine_playback == null or tire_playback == null:
+	if engine_playback == null or exhaust_playback == null or tire_playback == null:
 		return
 	var frames := engine_playback.get_frames_available()
 	if frames > 0:
@@ -632,23 +646,42 @@ func _update_vehicle_audio(_delta: float) -> void:
 			engine_buffer[i] = Vector2(sample * amplitude, sample * amplitude)
 			engine_phase = fmod(engine_phase + TAU * frequency / AUDIO_RATE, TAU)
 		engine_playback.push_buffer(engine_buffer)
-	engine_player.volume_db = lerpf(engine_player.volume_db, -17.0 if game_started else -80.0, 0.12)
+	engine_player.volume_db = lerpf(engine_player.volume_db, -20.0 if game_started else -80.0, 0.12)
+
+	# Independent exhaust channel: low combustion pulses when accelerating.
+	var exhaust_frames := exhaust_playback.get_frames_available()
+	if exhaust_frames > 0:
+		var exhaust_buffer := PackedVector2Array()
+		exhaust_buffer.resize(exhaust_frames)
+		var rpm := clampf(absf(speed) / MAX_SPEED, 0.0, 1.0)
+		var exhaust_frequency := 58.0 + rpm * 82.0 + (24.0 if throttle else 0.0)
+		var exhaust_level := 0.0
+		if game_started and not game_paused and throttle:
+			exhaust_level = 0.16 + rpm * 0.07
+		for i in range(exhaust_frames):
+			var pulse := sin(exhaust_phase) * 0.58 + sin(exhaust_phase * 2.0) * 0.27 + sin(exhaust_phase * 4.03) * 0.15
+			var sputter := 0.82 + 0.18 * sin(exhaust_phase * 0.37)
+			var sample := pulse * sputter * exhaust_level
+			exhaust_buffer[i] = Vector2(sample, sample)
+			exhaust_phase = fmod(exhaust_phase + TAU * exhaust_frequency / AUDIO_RATE, TAU)
+		exhaust_playback.push_buffer(exhaust_buffer)
+		exhaust_player.volume_db = lerpf(exhaust_player.volume_db, -10.0 if game_started and not game_paused and throttle else -80.0, 0.18)
 
 	var tire_frames := tire_playback.get_frames_available()
 	if tire_frames > 0:
 		var tire_buffer := PackedVector2Array()
 		tire_buffer.resize(tire_frames)
 		var steer_amount := absf(float(steer_right) - float(steer_left))
-		var squeal := clampf((absf(speed) / MAX_SPEED) * steer_amount * 0.32, 0.0, 0.22)
+		var squeal := clampf((absf(speed) / MAX_SPEED) * steer_amount * 0.48, 0.0, 0.30)
 		if brake and absf(speed) > 8.0:
-			squeal = maxf(squeal, 0.07)
-		if not game_started or game_paused:
+			squeal = maxf(squeal, 0.10)
+		if not game_started or game_paused or absf(speed) < 5.0:
 			squeal = 0.0
-		# A rough, low tyre-scrub texture instead of a pure high-pitched beep.
-		var tire_frequency := 430.0 + absf(speed) * 5.0
+		# Broadband gritty friction texture, deliberately unlike the exhaust tone.
+		var tire_frequency := 170.0 + absf(speed) * 2.0
 		for i in range(tire_frames):
-			var texture := sin(tire_phase) * 0.42 + sin(tire_phase * 1.61) * 0.27 + sin(tire_phase * 2.37) * 0.19 + sin(tire_phase * 3.13) * 0.12
-			var modulation := 0.78 + 0.22 * sin(tire_phase * 0.19)
+			var texture := sin(tire_phase * 1.03) * 0.34 + sin(tire_phase * 2.71) * 0.24 + sin(tire_phase * 4.83) * 0.18 + sin(tire_phase * 7.17) * 0.14 + sin(tire_phase * 11.31) * 0.10
+			var modulation := 0.68 + 0.32 * sin(tire_phase * 0.11)
 			var sample := texture * modulation * squeal
 			tire_buffer[i] = Vector2(sample, sample)
 			tire_phase = fmod(tire_phase + TAU * tire_frequency / AUDIO_RATE, TAU)
@@ -781,13 +814,11 @@ func _physics_process(delta: float) -> void:
 	if current_mission > 0 and mission_distance >= mission_target:
 		_finish_mission(true)
 
-	var target := car.global_position + Vector3(0, 5.0, 0) - forward * 9.8
-	camera.global_position = camera.global_position.lerp(target, 1.0 - exp(-6.0 * delta))
-	var previous_basis := camera.global_transform.basis
-	camera.look_at(car.global_position + Vector3(0, 1.05, 0))
-	var desired_basis := camera.global_transform.basis
-	camera.global_transform.basis = previous_basis.slerp(desired_basis, 1.0 - exp(-7.0 * delta))
-	camera.fov = lerpf(camera.fov, 70.0 + clampf(absf(speed) / MAX_SPEED, 0.0, 1.0) * 5.0, 1.0 - exp(-2.5 * delta))
+	# Firm third-person chase camera that follows the car's heading.
+	var camera_target := car.global_position + Vector3(0, 5.4, 0) - forward * 11.0
+	camera.global_position = camera.global_position.lerp(camera_target, 1.0 - exp(-10.0 * delta))
+	camera.look_at(car.global_position + Vector3(0, 1.0, 0), Vector3.UP)
+	camera.fov = lerpf(camera.fov, 68.0 + clampf(absf(speed) / MAX_SPEED, 0.0, 1.0) * 7.0, 1.0 - exp(-3.5 * delta))
 	speed_label.text = str(round(abs(speed) * 3.6)) + " km/h"
 	if abs(speed) < 0.5:
 		gear_label.text = "دنده: N"
