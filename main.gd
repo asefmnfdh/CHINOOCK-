@@ -174,7 +174,7 @@ func _build_bin(x: float, z: float) -> void:
 
 func _build_parked_car(x: float, z: float, variant: int) -> void:
 	var colors := [Color(0.72, 0.73, 0.75), Color(0.08, 0.12, 0.18), Color(0.48, 0.08, 0.055), Color(0.72, 0.58, 0.30)]
-	var paint := colors[variant % colors.size()]
+	var paint: Color = colors[variant % colors.size()]
 	_visual_box(self, "ParkedVehicleBody", Vector3(x, 0.68, z), Vector3(1.9, 0.68, 3.8), paint, 0.72, 0.28)
 	_visual_box(self, "ParkedVehicleCabin", Vector3(x, 1.12, z - 0.12), Vector3(1.48, 0.58, 1.9), Color(0.035, 0.09, 0.13), 0.5, 0.18)
 	for side in [-1.0, 1.0]:
