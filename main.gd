@@ -377,17 +377,17 @@ func _build_building_extras(x: float, z: float, h: float, road_side: float, face
 	var floors := max(2, int(h / 2.8))
 	if seed % 3 == 0:
 		for floor_index in range(1, floors, 2):
-			var y := 1.05 + float(floor_index) * 2.7
+			var balcony_y := 1.05 + float(floor_index) * 2.7
 			var balcony_x := face_x + road_side * 0.72
-			_visual_box(self, "BalconySlab", Vector3(balcony_x, y, z), Vector3(1.25, 0.12, 2.25), Color(0.27, 0.30, 0.34), 0.25, 0.65)
-			_visual_box(self, "BalconyRailTop", Vector3(balcony_x + road_side * 0.55, y + 0.48, z), Vector3(0.07, 0.07, 2.25), Color(0.12, 0.16, 0.20), 0.7, 0.3)
+			_visual_box(self, "BalconySlab", Vector3(balcony_x, balcony_y, z), Vector3(1.25, 0.12, 2.25), Color(0.27, 0.30, 0.34), 0.25, 0.65)
+			_visual_box(self, "BalconyRailTop", Vector3(balcony_x + road_side * 0.55, balcony_y + 0.48, z), Vector3(0.07, 0.07, 2.25), Color(0.12, 0.16, 0.20), 0.7, 0.3)
 			for rail_z in [-0.98, -0.33, 0.33, 0.98]:
-				_visual_box(self, "BalconyRailPost", Vector3(balcony_x + road_side * 0.55, y + 0.24, z + rail_z), Vector3(0.06, 0.48, 0.06), Color(0.16, 0.20, 0.24), 0.65, 0.35)
+				_visual_box(self, "BalconyRailPost", Vector3(balcony_x + road_side * 0.55, balcony_y + 0.24, z + rail_z), Vector3(0.06, 0.48, 0.06), Color(0.16, 0.20, 0.24), 0.65, 0.35)
 	if seed % 2 == 0:
 		for floor_index in range(1, floors, 2):
-			var y := 1.25 + float(floor_index) * 2.7
-			_visual_box(self, "ExteriorACUnit", Vector3(face_x + road_side * 0.28, y, z - 2.65), Vector3(0.42, 0.34, 0.72), Color(0.48, 0.52, 0.55), 0.35, 0.7)
-			_visual_box(self, "ACVent", Vector3(face_x + road_side * 0.51, y, z - 2.65), Vector3(0.035, 0.23, 0.48), Color(0.12, 0.15, 0.17), 0.15, 0.8)
+			var ac_y := 1.25 + float(floor_index) * 2.7
+			_visual_box(self, "ExteriorACUnit", Vector3(face_x + road_side * 0.28, ac_y, z - 2.65), Vector3(0.42, 0.34, 0.72), Color(0.48, 0.52, 0.55), 0.35, 0.7)
+			_visual_box(self, "ACVent", Vector3(face_x + road_side * 0.51, ac_y, z - 2.65), Vector3(0.035, 0.23, 0.48), Color(0.12, 0.15, 0.17), 0.15, 0.8)
 	if seed % 4 == 1:
 		var sign_x := face_x + road_side * 0.22
 		_visual_box(self, "RooftopBillboardPost", Vector3(sign_x, h + 1.15, z), Vector3(0.12, 1.8, 0.12), Color(0.13, 0.16, 0.20), 0.55, 0.4)
@@ -587,6 +587,7 @@ func _build_ui() -> void:
 	_make_button(root, "▶", Vector2(142, -118), Vector2(100, 88), "right")
 	_make_button(root, "گاز", Vector2(-252, -122), Vector2(112, 96), "gas")
 	_make_button(root, "ترمز", Vector2(-128, -122), Vector2(112, 96), "brake")
+	_build_logo(root)
 
 func _make_button(root: Control, caption: String, offset: Vector2, button_size: Vector2, action: String) -> void:
 	var button := Button.new()
