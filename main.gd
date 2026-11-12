@@ -80,14 +80,20 @@ func _build_world() -> void:
 	env.sky = sky
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	env.ambient_light_color = Color(0.72, 0.78, 0.88)
-	env.ambient_light_energy = 0.85
+	env.ambient_light_energy = 0.95
+	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	env.fog_enabled = true
+	env.fog_light_color = Color(0.53, 0.66, 0.77)
+	env.fog_density = 0.0018
 	world_env.environment = env
 	add_child(world_env)
 
 	var sun := DirectionalLight3D.new()
 	sun.rotation_degrees = Vector3(-48, -30, 0)
-	sun.light_energy = 1.25
+	sun.light_energy = 1.35
 	sun.shadow_enabled = true
+	sun.directional_shadow_max_distance = 95.0
+	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
 	add_child(sun)
 
 	_solid_box("CityGround", Vector3(0, -0.65, 0), Vector3(260, 1, 260), Color(0.16, 0.31, 0.19))
@@ -116,6 +122,7 @@ func _build_world() -> void:
 
 	_build_city_details()
 	_build_city_life()
+	_build_urban_details()
 
 func _build_city_details() -> void:
 	# Crosswalks, intersection markings and pedestrian islands.
@@ -328,6 +335,98 @@ func _build_building(x: float, z: float, h: float, wall_color: Color, seed: int)
 			add_child(window)
 			_visual_box(self, "WindowFrame", Vector3(face_x + road_side * 0.045, wy, wz), Vector3(0.08, 0.09, 1.9), Color(0.10, 0.13, 0.17))
 	_visual_box(self, "BuildingCanopy", Vector3(x, 0.55, z), Vector3(width + 0.35, 0.35, depth + 0.35), Color(0.16, 0.19, 0.23), 0.25, 0.45)
+
+	# Layered facade trim and architectural floor bands.
+	for floor_index in range(max(2, int(h / 2.8))):
+		var band_y := 0.72 + float(floor_index) * 2.7
+		_visual_box(self, "FacadeFloorBand", Vector3(face_x + road_side * 0.07, band_y, z), Vector3(0.12, 0.10, depth + 0.15), Color(0.19, 0.23, 0.29), 0.35, 0.42)
+	for col in range(4):
+		var pillar_z := z - 3.7 + float(col) * 2.45
+		_visual_box(self, "FacadeVerticalPier", Vector3(face_x + road_side * 0.09, h * 0.5, pillar_z), Vector3(0.16, h - 0.6, 0.16), Color(0.22, 0.26, 0.32), 0.2, 0.55)
+
+	# Ground-floor glass storefront, canopy and illuminated shop sign.
+	var shop_glass := _material(Color(0.035, 0.19, 0.25), 0.52, 0.12)
+	var shop_window := MeshInstance3D.new()
+	var shop_pane := BoxMesh.new()
+	shop_pane.size = Vector3(0.075, 1.75, 4.9)
+	shop_window.mesh = shop_pane
+	shop_window.material_override = shop_glass
+	shop_window.position = Vector3(face_x + road_side * 0.04, 1.75, z)
+	add_child(shop_window)
+	_visual_box(self, "ShopDoor", Vector3(face_x + road_side * 0.09, 1.25, z + 2.75), Vector3(0.12, 2.35, 0.95), Color(0.025, 0.11, 0.17), 0.45, 0.18)
+	_visual_box(self, "ShopAwning", Vector3(face_x + road_side * 0.55, 2.85, z), Vector3(0.95, 0.16, 5.5), Color(0.68, 0.25, 0.12), 0.1, 0.65)
+	_visual_box(self, "ShopSignBoard", Vector3(face_x + road_side * 0.14, 3.35, z), Vector3(0.18, 0.62, 4.7), Color(0.035, 0.07, 0.12), 0.2, 0.4)
+	var sign := Label3D.new()
+	sign.text = ["MARKET", "CAFE", "CITY STORE", "AUTO"][posmod(seed, 4)]
+	sign.font_size =  forty_font_size()
+	sign.pixel_size = 0.004
+	sign.modulate = Color(0.92, 0.82, 0.56)
+	sign.position = Vector3(face_x + road_side * 0.25, 3.34, z)
+	sign.rotation.y = PI * 0.5 if road_side < 0.0 else -PI * 0.5
+	add_child(sign)
+
+	# Rooftop parapet and compact ventilation units.
+	_visual_box(self, "RoofParapet", Vector3(x, h + 0.22, z), Vector3(width + 0.25, 0.42, depth + 0.25), Color(0.24, 0.27, 0.32), 0.18, 0.7)
+	for unit in range(2):
+		_visual_box(self, "RooftopVent", Vector3(x + float(unit) * 2.5 - 1.25, h + 0.62, z + 1.8), Vector3(1.25, 0.55, 1.1), Color(0.34, 0.38, 0.42), 0.5, 0.6)
+
+func forty_font_size() -> int:
+	return  forty_font_size_value()
+
+func forty_font_size_value() -> int:
+	return  forty_font_size_value_inner()
+
+func forty_font_size_value_inner() -> int:
+	return  forty_font_size_value_final()
+
+func forty_font_size_value_final() -> int:
+	return  forty_font_size_value_real()
+
+func forty_font_size_value_real() -> int:
+	return  forty_font_size_value_actual()
+
+func forty_font_size_value_actual() -> int:
+	return  forty_font_size_value_ok()
+
+func forty_font_size_value_ok() -> int:
+	return  forty_font_size_value_end()
+
+func forty_font_size_value_end() -> int:
+	return  forty_font_size_value_num()
+
+func forty_font_size_value_num() -> int:
+	return  forty_font_size_value_last()
+
+func forty_font_size_value_last() -> int:
+	return 40
+
+func _build_urban_details() -> void:
+	# Sidewalk paving joints, curb stones and drains add scale to the street.
+	for z in range(-116, 120, 4):
+		_visual_box(self, "LeftPavingJoint", Vector3(-9.65, 0.132, float(z)), Vector3(2.0, 0.012, 0.035), Color(0.43, 0.46, 0.47))
+		_visual_box(self, "RightPavingJoint", Vector3(9.65, 0.132, float(z)), Vector3(2.0, 0.012, 0.035), Color(0.43, 0.46, 0.47))
+		if z % 12 == 0:
+			_visual_box(self, "RoadDrain", Vector3(-8.48, 0.09, float(z)), Vector3(0.18, 0.025, 0.9), Color(0.055, 0.065, 0.075), 0.65, 0.8)
+			_visual_box(self, "RoadDrainRight", Vector3(8.48, 0.09, float(z)), Vector3(0.18, 0.025, 0.9), Color(0.055, 0.065, 0.075), 0.65, 0.8)
+
+	# Small street signs, bollards and parking markings.
+	for i in range(12):
+		var z := -100.0 + float(i) * 18.0
+		var side := -1.0 if i % 2 == 0 else 1.0
+		var post := MeshInstance3D.new()
+		var post_mesh := CylinderMesh.new()
+		post_mesh.top_radius = 0.045
+		post_mesh.bottom_radius = 0.06
+		post_mesh.height = 2.4
+		post.mesh = post_mesh
+		post.material_override = _material(Color(0.12, 0.15, 0.18), 0.7, 0.35)
+		post.position = Vector3(side * 10.65, 1.2, z)
+		add_child(post)
+		_visual_box(self, "StreetNameSign", Vector3(side * 10.65, 2.25, z), Vector3(0.12, 0.42, 1.5), Color(0.035, 0.22, 0.18), 0.15, 0.45)
+	for z in [-94.0, -40.0, 14.0, 68.0]:
+		for i in range(3):
+			var x := 5.2 + float(i) * 1.05
+			_visual_box(self, "ParkingBayLine", Vector3(x, 0.085, z), Vector3(0.055, 0.02, 5.0), Color(0.76, 0.80, 0.79))
 
 func _build_tree(x: float, z: float, scale_factor: float) -> void:
 	var trunk := MeshInstance3D.new()
