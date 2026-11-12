@@ -12,6 +12,12 @@ var speed := 0.0
 var heading := 0.0
 var traffic_vehicles: Array[Node3D] = []
 var pedestrians: Array[Node3D] = []
+var traffic_speeds: Array[float] = []
+var traffic_directions: Array[float] = []
+var pedestrian_legs: Array = []
+var signal_lamps: Array[MeshInstance3D] = []
+var signal_clock := 0.0
+var traffic_light_green := true
 
 const MAX_SPEED := 42.0
 const ACCEL := 20.0
@@ -164,6 +170,8 @@ func _build_city_life() -> void:
 				vehicle.add_child(wheel)
 		add_child(vehicle)
 		traffic_vehicles.append(vehicle)
+		traffic_speeds.append(5.0 + float(i % 3) * 1.2)
+		traffic_directions.append(-1.0 if i % 2 == 0 else 1.0)
 
 	# Pedestrians walk along both sidewalks; they are visual NPCs in this prototype.
 	for i in range(12):
@@ -188,6 +196,7 @@ func _build_city_life() -> void:
 		head.material_override = _material(Color(0.72, 0.52, 0.38), 0.0, 0.85)
 		head.position = Vector3(0, 1.67, 0)
 		person.add_child(head)
+		var person_legs: Array[MeshInstance3D] = []
 		for leg_x in [-0.10, 0.10]:
 			var leg := MeshInstance3D.new()
 			var leg_mesh := CapsuleMesh.new()
@@ -197,24 +206,52 @@ func _build_city_life() -> void:
 			leg.material_override = _material(Color(0.08, 0.10, 0.15), 0.0, 0.9)
 			leg.position = Vector3(leg_x, 0.38, 0)
 			person.add_child(leg)
+			person_legs.append(leg)
 		add_child(person)
 		pedestrians.append(person)
+		pedestrian_legs.append(person_legs)
 
 func _process(delta: float) -> void:
+	# Opposing traffic flows in separate lanes and gently corrects its lane position.
 	for i in range(traffic_vehicles.size()):
 		var vehicle := traffic_vehicles[i]
-		vehicle.position.z -= (3.2 + float(i % 3) * 0.8) * delta
-		if vehicle.position.z < -125.0:
-			vehicle.position.z = 112.0 + float(i % 3) * 12.0
+		var direction: float = traffic_directions[i]
+		vehicle.position.z += direction * traffic_speeds[i] * delta
+		vehicle.position.x = (-4.4 if i % 2 == 0 else 4.4) + sin(Time.get_ticks_msec() * 0.0007 + float(i)) * 0.10
+		if direction < 0.0 and vehicle.position.z < -125.0:
+			vehicle.position.z = 125.0 + float(i % 3) * 8.0
+		elif direction > 0.0 and vehicle.position.z > 125.0:
+			vehicle.position.z = -125.0 - float(i % 3) * 8.0
+
+	# Pedestrian NPCs walk with alternating leg motion rather than sliding.
 	for i in range(pedestrians.size()):
 		var person := pedestrians[i]
 		var direction := 1.0 if i % 2 == 0 else -1.0
 		person.position.z += direction * 0.75 * delta
+		var gait := sin(Time.get_ticks_msec() * 0.008 + float(i) * 1.7)
+		var legs: Array = pedestrian_legs[i]
+		legs[0].rotation.x = gait * 0.48
+		legs[1].rotation.x = -gait * 0.48
 		person.rotation.y = 0.08 * sin(Time.get_ticks_msec() * 0.004 + float(i))
 		if person.position.z > 118.0:
 			person.position.z = -118.0
 		elif person.position.z < -118.0:
 			person.position.z = 118.0
+
+	# Simple timed traffic-light cycle: green and red lamps alternate.
+	signal_clock += delta
+	if signal_clock >= 8.0:
+		signal_clock = 0.0
+		traffic_light_green = not traffic_light_green
+	for lamp_index in range(signal_lamps.size()):
+		var color := Color(0.04, 0.72, 0.20) if traffic_light_green else Color(0.9, 0.035, 0.025)
+		if lamp_index % 3 == 0:
+			color = Color(0.9, 0.035, 0.025) if traffic_light_green else Color(0.04, 0.72, 0.20)
+		var lamp_material := _material(color, 0.0, 0.2)
+		lamp_material.emission_enabled = true
+		lamp_material.emission = color
+		lamp_material.emission_energy_multiplier = 0.55
+		signal_lamps[lamp_index].material_override = lamp_material
 
 func _build_traffic_signal(x: float, z: float, faces_right: bool) -> void:
 	var pole := MeshInstance3D.new()
@@ -236,6 +273,7 @@ func _build_traffic_signal(x: float, z: float, faces_right: bool) -> void:
 		lamp_mat.emission_energy_multiplier = 0.35
 		var lamp := _visual_box(self, "SignalLamp", Vector3(x + direction * 0.42, 3.9 - float(j) * 0.34, z + 0.19), Vector3(0.25, 0.23, 0.035), colors[j], 0.0, 0.2)
 		lamp.material_override = lamp_mat
+		signal_lamps.append(lamp)
 
 func _build_planter(x: float, z: float) -> void:
 	_visual_box(self, "StonePlanter", Vector3(x, 0.28, z), Vector3(1.25, 0.48, 2.0), Color(0.28, 0.31, 0.32), 0.0, 0.9)
@@ -491,6 +529,11 @@ func _physics_process(delta: float) -> void:
 	else:
 		speed = move_toward(speed, 0.0, DRAG * delta)
 
+	# Automatic emergency braking when the player is about to hit a traffic car.
+	for vehicle in traffic_vehicles:
+		var relative := vehicle.global_position - car.global_position
+		if abs(relative.x) < 2.25 and abs(relative.z) < 4.7 and abs(speed) > 0.0:
+			speed = move_toward(speed, 0.0, BRAKE_POWER * delta * 1.8)
 	var steer := float(steer_right) - float(steer_left)
 	if abs(speed) > 0.2:
 		heading -= steer * TURN_RATE * delta * clamp(abs(speed) / 8.0, 0.25, 1.0)
