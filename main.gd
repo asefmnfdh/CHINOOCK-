@@ -676,7 +676,6 @@ func _unhandled_input(event: InputEvent) -> void:
 func _physics_process(delta: float) -> void:
 	if not game_started or game_paused:
 		return
-	var previous_position := car.global_position
 	if throttle:
 		speed = move_toward(speed, MAX_SPEED, ACCEL * delta)
 	elif brake:
@@ -697,7 +696,12 @@ func _physics_process(delta: float) -> void:
 	car.velocity = forward * speed
 	car.velocity.y = -1.0
 	car.move_and_slide()
-	mission_distance += car.global_position.distance_to(previous_position)
+	mission_distance += absf(speed) * delta
+	if car.global_position.z > 112.0:
+		car.global_position.z = -112.0
+	elif car.global_position.z < -112.0:
+		car.global_position.z = 112.0
+	car.global_position.x = clampf(car.global_position.x, -7.2, 7.2)
 	if distance_label:
 		distance_label.text = "مسافت: %d متر" % int(mission_distance)
 	if current_mission > 0 and mission_distance >= mission_target:
@@ -824,11 +828,7 @@ func _cycle_car_paint() -> void:
 		hood.material_override = _material(car_paints[selected_car].lightened(0.12), 0.78, 0.2)
 	if roof:
 		roof.material_override = _material(car_paints[selected_car].darkened(0.18), 0.75, 0.18)
-	var old_menu := hud_root.get_node_or_null("MainMenuOverlay")
-	if old_menu:
-		var title := old_menu.find_child("*", true, false)
-		# The selected paint is applied immediately; menu remains open.
-		pass
+	# Paint changes immediately while the menu stays open.
 
 func _toggle_pause() -> void:
 	if not game_started:
