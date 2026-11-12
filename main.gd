@@ -158,10 +158,12 @@ func _build_streetlight(x: float, z: float) -> void:
 	add_child(pole)
 	var arm_dir := -1.0 if x < 0.0 else 1.0
 	_visual_box(self, "LampArm", Vector3(x + arm_dir * 0.65, 5.35, z), Vector3(1.35, 0.08, 0.08), Color(0.12, 0.15, 0.19), 0.6, 0.35)
+	var lamp_mat := _material(Color(1.0, 0.88, 0.57), 0.0, 0.2)
+	lamp_mat.emission_enabled = true
+	lamp_mat.emission = Color(1.0, 0.72, 0.35)
+	lamp_mat.emission_energy_multiplier = 0.5
 	var lamp := _visual_box(self, "StreetLamp", Vector3(x + arm_dir * 1.2, 5.22, z), Vector3(0.42, 0.13, 0.35), Color(1.0, 0.88, 0.57), 0.0, 0.2)
-	lamp.material_override.emission_enabled = true
-	lamp.material_override.emission = Color(1.0, 0.72, 0.35)
-	lamp.material_override.emission_energy_multiplier = 0.5
+	lamp.material_override = lamp_mat
 
 func _build_car() -> void:
 	car = CharacterBody3D.new()
@@ -189,14 +191,18 @@ func _build_car() -> void:
 	_visual_box(car, "FrontBumper", Vector3(0, 0.12, 2.13), Vector3(2.22, 0.25, 0.18), Color(0.012, 0.018, 0.028), 0.5, 0.32)
 	_visual_box(car, "FrontGrille", Vector3(0, 0.34, 2.145), Vector3(0.72, 0.22, 0.035), Color(0.008, 0.012, 0.018), 0.15, 0.45)
 	for side in [-1.0, 1.0]:
+		var headlight_mat := _material(Color(0.82, 0.94, 1.0), 0.1, 0.15)
+		headlight_mat.emission_enabled = true
+		headlight_mat.emission = Color(0.65, 0.85, 1.0)
+		headlight_mat.emission_energy_multiplier = 0.65
 		var headlamp := _visual_box(car, "LEDHeadlight", Vector3(side * 0.78, 0.48, 2.14), Vector3(0.48, 0.15, 0.055), Color(0.82, 0.94, 1.0), 0.1, 0.15)
-		headlamp.material_override.emission_enabled = true
-		headlamp.material_override.emission = Color(0.65, 0.85, 1.0)
-		headlamp.material_override.emission_energy_multiplier = 0.65
+		headlamp.material_override = headlight_mat
+		var tail_mat := _material(Color(0.9, 0.025, 0.02), 0.15, 0.2)
+		tail_mat.emission_enabled = true
+		tail_mat.emission = Color(1.0, 0.015, 0.01)
+		tail_mat.emission_energy_multiplier = 0.6
 		var tail := _visual_box(car, "TailLight", Vector3(side * 0.78, 0.49, -2.14), Vector3(0.52, 0.13, 0.055), Color(0.9, 0.025, 0.02), 0.15, 0.2)
-		tail.material_override.emission_enabled = true
-		tail.material_override.emission = Color(1.0, 0.015, 0.01)
-		tail.material_override.emission_energy_multiplier = 0.6
+		tail.material_override = tail_mat
 	_visual_box(car, "RearBumper", Vector3(0, 0.12, -2.15), Vector3(2.2, 0.24, 0.18), Color(0.012, 0.018, 0.028), 0.5, 0.32)
 	_visual_box(car, "RearSpoiler", Vector3(0, 0.91, -1.91), Vector3(2.05, 0.10, 0.32), Color(0.018, 0.035, 0.06), 0.72, 0.25)
 	for side in [-1.0, 1.0]:
