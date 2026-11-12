@@ -10,6 +10,8 @@ var throttle := false
 var brake := false
 var speed := 0.0
 var heading := 0.0
+var traffic_vehicles: Array[Node3D] = []
+var pedestrians: Array[Node3D] = []
 
 const MAX_SPEED := 42.0
 const ACCEL := 20.0
@@ -107,6 +109,7 @@ func _build_world() -> void:
 			_build_streetlight(10.8, z - 1.0)
 
 	_build_city_details()
+	_build_city_life()
 
 func _build_city_details() -> void:
 	# Crosswalks, intersection markings and pedestrian islands.
@@ -135,6 +138,83 @@ func _build_city_details() -> void:
 	for z in [-48.0, 12.0, 72.0]:
 		_visual_box(self, "LaneArrowStem", Vector3(-3.0, 0.085, z), Vector3(0.13, 0.025, 2.0), Color(0.78, 0.81, 0.80))
 		_visual_box(self, "LaneArrowHead", Vector3(-3.0, 0.085, z + 1.0), Vector3(1.0, 0.025, 0.14), Color(0.78, 0.81, 0.80))
+
+func _build_city_life() -> void:
+	# Moving traffic stays in the two opposing lanes, away from the player's center lane.
+	for i in range(8):
+		var vehicle := Node3D.new()
+		vehicle.name = "TrafficVehicle"
+		var lane := -4.4 if i % 2 == 0 else 4.4
+		vehicle.position = Vector3(lane, 0.0, -105.0 + float(i) * 29.0)
+		var paint_colors := [Color(0.72, 0.12, 0.08), Color(0.08, 0.28, 0.62), Color(0.72, 0.72, 0.68), Color(0.08, 0.10, 0.13), Color(0.68, 0.48, 0.12)]
+		var paint: Color = paint_colors[i % paint_colors.size()]
+		_visual_box(vehicle, "TrafficBody", Vector3(0, 0.67, 0), Vector3(1.85, 0.68, 3.65), paint, 0.55, 0.3)
+		_visual_box(vehicle, "TrafficCabin", Vector3(0, 1.17, -0.15), Vector3(1.48, 0.58, 1.85), Color(0.035, 0.09, 0.14), 0.45, 0.2)
+		for side in [-1.0, 1.0]:
+			for offset in [-1.12, 1.12]:
+				var wheel := MeshInstance3D.new()
+				var wheel_mesh := CylinderMesh.new()
+				wheel_mesh.top_radius = 0.29
+				wheel_mesh.bottom_radius = 0.29
+				wheel_mesh.height = 0.16
+				wheel.mesh = wheel_mesh
+				wheel.rotation_degrees.z = 90
+				wheel.position = Vector3(side * 0.91, 0.34, offset)
+				wheel.material_override = _material(Color(0.012, 0.014, 0.018), 0.0, 0.9)
+				vehicle.add_child(wheel)
+		add_child(vehicle)
+		traffic_vehicles.append(vehicle)
+
+	# Pedestrians walk along both sidewalks; they are visual NPCs in this prototype.
+	for i in range(12):
+		var person := Node3D.new()
+		person.name = "WalkingPedestrian"
+		var side := -1.0 if i % 2 == 0 else 1.0
+		person.position = Vector3(side * 10.0, 0.0, -100.0 + float(i) * 18.0)
+		var shirt_colors := [Color(0.72, 0.18, 0.12), Color(0.12, 0.28, 0.68), Color(0.78, 0.62, 0.22), Color(0.16, 0.42, 0.28)]
+		var torso := MeshInstance3D.new()
+		var torso_mesh := CapsuleMesh.new()
+		torso_mesh.radius = 0.23
+		torso_mesh.height = 1.05
+		torso.mesh = torso_mesh
+		torso.material_override = _material(shirt_colors[i % shirt_colors.size()], 0.0, 0.8)
+		torso.position = Vector3(0, 1.0, 0)
+		person.add_child(torso)
+		var head := MeshInstance3D.new()
+		var head_mesh := SphereMesh.new()
+		head_mesh.radius = 0.17
+		head_mesh.height = 0.34
+		head.mesh = head_mesh
+		head.material_override = _material(Color(0.72, 0.52, 0.38), 0.0, 0.85)
+		head.position = Vector3(0, 1.67, 0)
+		person.add_child(head)
+		for leg_x in [-0.10, 0.10]:
+			var leg := MeshInstance3D.new()
+			var leg_mesh := CapsuleMesh.new()
+			leg_mesh.radius = 0.075
+			leg_mesh.height = 0.62
+			leg.mesh = leg_mesh
+			leg.material_override = _material(Color(0.08, 0.10, 0.15), 0.0, 0.9)
+			leg.position = Vector3(leg_x, 0.38, 0)
+			person.add_child(leg)
+		add_child(person)
+		pedestrians.append(person)
+
+func _process(delta: float) -> void:
+	for i in range(traffic_vehicles.size()):
+		var vehicle := traffic_vehicles[i]
+		vehicle.position.z -= (3.2 + float(i % 3) * 0.8) * delta
+		if vehicle.position.z < -125.0:
+			vehicle.position.z = 112.0 + float(i % 3) * 12.0
+	for i in range(pedestrians.size()):
+		var person := pedestrians[i]
+		var direction := 1.0 if i % 2 == 0 else -1.0
+		person.position.z += direction * 0.75 * delta
+		person.rotation.y = 0.08 * sin(Time.get_ticks_msec() * 0.004 + float(i))
+		if person.position.z > 118.0:
+			person.position.z = -118.0
+		elif person.position.z < -118.0:
+			person.position.z = 118.0
 
 func _build_traffic_signal(x: float, z: float, faces_right: bool) -> void:
 	var pole := MeshInstance3D.new()
