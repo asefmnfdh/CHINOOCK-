@@ -1,7 +1,7 @@
 config_version=5
 
 [application]
-config/name="CHINOOCK"
+config/name="CHINOK"
 run/main_scene="res://Main.tscn"
 config/features=PackedStringArray("4.3", "GL Compatibility")
 
