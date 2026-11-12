@@ -393,7 +393,7 @@ func _build_building_extras(x: float, z: float, h: float, road_side: float, face
 		_visual_box(self, "RooftopBillboardPost", Vector3(sign_x, h + 1.15, z), Vector3(0.12, 1.8, 0.12), Color(0.13, 0.16, 0.20), 0.55, 0.4)
 		_visual_box(self, "RooftopBillboard", Vector3(sign_x, h + 2.15, z), Vector3(0.18, 1.25, 4.2), Color(0.035, 0.12, 0.20), 0.35, 0.35)
 		var billboard_text := Label3D.new()
-		billboard_text.text = ["CHINOOCK CITY", "DRIVE SAFE", "OPEN 24 HOURS"][posmod(seed, 3)]
+		billboard_text.text = ["CHINOK CITY", "DRIVE SAFE", "OPEN 24 HOURS"][posmod(seed, 3)]
 		billboard_text.font_size = 48
 		billboard_text.pixel_size = 0.006
 		billboard_text.modulate = Color(0.88, 0.94, 1.0)
@@ -658,3 +658,27 @@ func _physics_process(delta: float) -> void:
 		gear_label.text = "دنده: 3"
 	else:
 		gear_label.text = "دنده: 4"
+
+
+func _build_logo(root: Control) -> void:
+	var panel := PanelContainer.new()
+	panel.position = Vector2(-292, 18)
+	panel.size = Vector2(270, 76)
+	panel.anchor_left = 1.0
+	panel.anchor_right = 1.0
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.025, 0.018, 0.075, 0.9)
+	style.set_border_width_all(2)
+	style.border_color = Color(0.82, 0.20, 0.95)
+	style.set_corner_radius_all(12)
+	style.shadow_color = Color(0.18, 0.48, 1.0, 0.45)
+	style.shadow_size = 10
+	panel.add_theme_stylebox_override("panel", style)
+	root.add_child(panel)
+	var logo := Label.new()
+	logo.text = "✦  CHINOK"
+	logo.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	logo.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	logo.add_theme_font_size_override("font_size", 32)
+	logo.add_theme_color_override("font_color", Color(1.0, 0.35, 0.88))
+	panel.add_child(logo)
