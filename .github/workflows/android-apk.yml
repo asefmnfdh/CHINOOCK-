@@ -54,20 +54,19 @@ jobs:
           export/android/debug_keystore = "$HOME/debug.keystore"
           export/android/debug_keystore_user = "androiddebugkey"
           export/android/debug_keystore_pass = "android"
-          export/android/force_system_user = false
-          export/android/timestamping_authority_url = ""
-          export/android/shutdown_adb_on_exit = true
           EOF
-          echo "JAVA_HOME=$JAVA_HOME"
-          echo "ANDROID_HOME=$ANDROID_HOME"
-          test -x "$JAVA_HOME/bin/java"
-          test -x "$ANDROID_HOME/platform-tools/adb"
           test -f "$HOME/debug.keystore"
+          test -x "$ANDROID_HOME/platform-tools/adb"
 
-      - name: Verify tools
+      - name: Verify tools and Android paths
         run: |
           godot --version
           java -version
+          test -d "$ANDROID_HOME/platforms/android-34"
+          test -d "$ANDROID_HOME/build-tools/34.0.0"
+          test -d "$ANDROID_HOME/ndk/23.2.8568313"
+          test -d "$ANDROID_HOME/cmake/3.10.2.4988404"
+          test -d "$HOME/.local/share/godot/export_templates/4.3.stable"
 
       - name: Prepare and validate project
         run: |
@@ -81,7 +80,14 @@ jobs:
         run: godot --headless --editor --path . --quit
 
       - name: Export Android APK
-        run: godot --headless --path . --export-debug "Android" build/CHINOOCK-debug.apk
+        env:
+          GODOT_ANDROID_KEYSTORE_DEBUG_PATH: ${{ env.HOME }}/debug.keystore
+          GODOT_ANDROID_KEYSTORE_DEBUG_USER: androiddebugkey
+          GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD: android
+        run: godot --headless --verbose --path . --export-debug "Android" build/CHINOOCK-debug.apk
+
+      - name: Verify APK output
+        run: test -s build/CHINOOCK-debug.apk
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
