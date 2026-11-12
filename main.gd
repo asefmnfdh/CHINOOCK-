@@ -33,6 +33,13 @@ var distance_label: Label
 var pause_button: Button
 var selected_car := 0
 var car_paints: Array[Color] = [Color(0.025, 0.24, 0.48), Color(0.62, 0.045, 0.035), Color(0.035, 0.045, 0.06)]
+var engine_player: AudioStreamPlayer
+var tire_player: AudioStreamPlayer
+var engine_playback: AudioStreamGeneratorPlayback
+var tire_playback: AudioStreamGeneratorPlayback
+var engine_phase := 0.0
+var tire_phase := 0.0
+const AUDIO_RATE := 22050.0
 
 const MAX_SPEED := 42.0
 const ACCEL := 20.0
@@ -44,6 +51,7 @@ func _ready() -> void:
 	_build_world()
 	_build_car()
 	_build_camera()
+	_setup_vehicle_audio()
 	_build_ui()
 	_show_main_menu()
 
@@ -235,6 +243,7 @@ func _build_city_life() -> void:
 		pedestrian_legs.append(person_legs)
 
 func _process(delta: float) -> void:
+	_update_vehicle_audio(delta)
 	if game_started and not game_paused and current_mission > 0:
 		mission_elapsed += delta
 		mission_time = maxf(0.0, mission_time - delta)
@@ -582,6 +591,67 @@ func _build_camera() -> void:
 	camera.global_position = car.global_position + Vector3(0, 5.2, -9.5)
 	camera.look_at(car.global_position + Vector3(0, 0.8, 0))
 
+func _setup_vehicle_audio() -> void:
+	# Lightweight synthesized engine and tyre sounds; no external audio files required.
+	var engine_stream := AudioStreamGenerator.new()
+	engine_stream.mix_rate = int(AUDIO_RATE)
+	engine_stream.buffer_length = 0.18
+	engine_player = AudioStreamPlayer.new()
+	engine_player.name = "CHINOCK_EngineAudio"
+	engine_player.stream = engine_stream
+	engine_player.volume_db = -80.0
+	car.add_child(engine_player)
+	engine_player.play()
+	engine_playback = engine_player.get_stream_playback() as AudioStreamGeneratorPlayback
+
+	var tire_stream := AudioStreamGenerator.new()
+	tire_stream.mix_rate = int(AUDIO_RATE)
+	tire_stream.buffer_length = 0.18
+	tire_player = AudioStreamPlayer.new()
+	tire_player.name = "CHINOCK_TyreAudio"
+	tire_player.stream = tire_stream
+	tire_player.volume_db = -80.0
+	car.add_child(tire_player)
+	tire_player.play()
+	tire_playback = tire_player.get_stream_playback() as AudioStreamGeneratorPlayback
+
+func _update_vehicle_audio(_delta: float) -> void:
+	if engine_playback == null or tire_playback == null:
+		return
+	var frames := engine_playback.get_frames_available()
+	if frames > 0:
+		var engine_buffer := PackedVector2Array()
+		engine_buffer.resize(frames)
+		var rpm_factor := clampf(absf(speed) / MAX_SPEED, 0.0, 1.0)
+		var frequency := 72.0 + rpm_factor * 145.0 + (18.0 if throttle else 0.0)
+		var amplitude := 0.10 + (0.045 if throttle else 0.0)
+		if not game_started:
+			amplitude = 0.0
+		for i in range(frames):
+			var sample := sin(engine_phase) * 0.72 + sin(engine_phase * 2.01) * 0.20 + sin(engine_phase * 3.0) * 0.08
+			engine_buffer[i] = Vector2(sample * amplitude, sample * amplitude)
+			engine_phase = fmod(engine_phase + TAU * frequency / AUDIO_RATE, TAU)
+		engine_playback.push_buffer(engine_buffer)
+	engine_player.volume_db = lerpf(engine_player.volume_db, -17.0 if game_started else -80.0, 0.12)
+
+	var tire_frames := tire_playback.get_frames_available()
+	if tire_frames > 0:
+		var tire_buffer := PackedVector2Array()
+		tire_buffer.resize(tire_frames)
+		var steer_amount := absf(float(steer_right) - float(steer_left))
+		var squeal := clampf((absf(speed) / MAX_SPEED) * steer_amount * 0.32, 0.0, 0.22)
+		if brake and absf(speed) > 8.0:
+			squeal = maxf(squeal, 0.07)
+		if not game_started or game_paused:
+			squeal = 0.0
+		var tire_frequency := 780.0 + absf(speed) * 9.0
+		for i in range(tire_frames):
+			var sample := sin(tire_phase) * squeal
+			tire_buffer[i] = Vector2(sample, sample)
+			tire_phase = fmod(tire_phase + TAU * tire_frequency / AUDIO_RATE, TAU)
+		tire_playback.push_buffer(tire_buffer)
+	tire_player.volume_db = lerpf(tire_player.volume_db, -8.0 if game_started and not game_paused else -80.0, 0.16)
+
 func _build_ui() -> void:
 	var layer := CanvasLayer.new()
 	add_child(layer)
@@ -692,6 +762,7 @@ func _physics_process(delta: float) -> void:
 	if abs(speed) > 0.2:
 		heading -= steer * TURN_RATE * delta * clamp(abs(speed) / 8.0, 0.25, 1.0)
 	car.rotation.y = heading
+	car.rotation.z = lerpf(car.rotation.z, -steer * 0.045, 1.0 - exp(-5.5 * delta))
 	var forward := Vector3(sin(heading), 0, cos(heading))
 	car.velocity = forward * speed
 	car.velocity.y = -1.0
@@ -707,9 +778,13 @@ func _physics_process(delta: float) -> void:
 	if current_mission > 0 and mission_distance >= mission_target:
 		_finish_mission(true)
 
-	var target := car.global_position + Vector3(0, 5.0, 0) - forward * 9.2
-	camera.global_position = camera.global_position.lerp(target, 1.0 - exp(-4.5 * delta))
-	camera.look_at(car.global_position + Vector3(0, 1.0, 0))
+	var target := car.global_position + Vector3(0, 5.0, 0) - forward * 9.8
+	camera.global_position = camera.global_position.lerp(target, 1.0 - exp(-6.0 * delta))
+	var previous_basis := camera.global_transform.basis
+	camera.look_at(car.global_position + Vector3(0, 1.05, 0))
+	var desired_basis := camera.global_transform.basis
+	camera.global_transform.basis = previous_basis.slerp(desired_basis, 1.0 - exp(-7.0 * delta))
+	camera.fov = lerpf(camera.fov, 70.0 + clampf(absf(speed) / MAX_SPEED, 0.0, 1.0) * 5.0, 1.0 - exp(-2.5 * delta))
 	speed_label.text = str(round(abs(speed) * 3.6)) + " km/h"
 	if abs(speed) < 0.5:
 		gear_label.text = "دنده: N"
