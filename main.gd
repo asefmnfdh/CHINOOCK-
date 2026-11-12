@@ -18,6 +18,21 @@ var pedestrian_legs: Array = []
 var signal_lamps: Array[MeshInstance3D] = []
 var signal_clock := 0.0
 var traffic_light_green := true
+var game_started := false
+var game_paused := false
+var current_mission := 0
+var mission_time := 90.0
+var mission_distance := 0.0
+var mission_target := 900.0
+var mission_elapsed := 0.0
+var menu_layer: Control
+var hud_root: Control
+var mission_label: Label
+var timer_label: Label
+var distance_label: Label
+var pause_button: Button
+var selected_car := 0
+var car_paints: Array[Color] = [Color(0.025, 0.24, 0.48), Color(0.62, 0.045, 0.035), Color(0.035, 0.045, 0.06)]
 
 const MAX_SPEED := 42.0
 const ACCEL := 20.0
@@ -30,6 +45,7 @@ func _ready() -> void:
 	_build_car()
 	_build_camera()
 	_build_ui()
+	_show_main_menu()
 
 func _material(color: Color, metallic: float = 0.0, roughness: float = 0.55) -> StandardMaterial3D:
 	var mat := StandardMaterial3D.new()
@@ -219,6 +235,13 @@ func _build_city_life() -> void:
 		pedestrian_legs.append(person_legs)
 
 func _process(delta: float) -> void:
+	if game_started and not game_paused and current_mission > 0:
+		mission_elapsed += delta
+		mission_time = maxf(0.0, mission_time - delta)
+		if timer_label:
+			timer_label.text = "زمان: %02d" % int(ceil(mission_time))
+		if mission_time <= 0.0:
+			_finish_mission(false)
 	# Opposing traffic flows in separate lanes and gently corrects its lane position.
 	for i in range(traffic_vehicles.size()):
 		var vehicle := traffic_vehicles[i]
@@ -565,6 +588,7 @@ func _build_ui() -> void:
 	var root := Control.new()
 	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	layer.add_child(root)
+	hud_root = root
 
 	var speed_panel := PanelContainer.new()
 	speed_panel.position = Vector2(22, 18)
@@ -588,6 +612,33 @@ func _build_ui() -> void:
 	_make_button(root, "گاز", Vector2(-252, -122), Vector2(112, 96), "gas")
 	_make_button(root, "ترمز", Vector2(-128, -122), Vector2(112, 96), "brake")
 	_build_logo(root)
+	mission_label = Label.new()
+	mission_label.position = Vector2(24, 128)
+	mission_label.add_theme_font_size_override("font_size", 19)
+	mission_label.add_theme_color_override("font_color", Color(1.0, 0.88, 0.58))
+	mission_label.text = "رانندگی آزاد"
+	root.add_child(mission_label)
+	timer_label = Label.new()
+	timer_label.position = Vector2(24, 158)
+	timer_label.add_theme_font_size_override("font_size", 19)
+	timer_label.add_theme_color_override("font_color", Color(0.95, 0.97, 1.0))
+	timer_label.text = ""
+	root.add_child(timer_label)
+	distance_label = Label.new()
+	distance_label.position = Vector2(24, 188)
+	distance_label.add_theme_font_size_override("font_size", 18)
+	distance_label.add_theme_color_override("font_color", Color(0.86, 0.92, 1.0))
+	distance_label.text = "مسافت: ۰ متر"
+	root.add_child(distance_label)
+	pause_button = Button.new()
+	pause_button.text = "Ⅱ"
+	pause_button.position = Vector2(-88, 112)
+	pause_button.size = Vector2(64, 58)
+	pause_button.anchor_left = 1.0
+	pause_button.anchor_right = 1.0
+	pause_button.add_theme_font_size_override("font_size", 26)
+	root.add_child(pause_button)
+	pause_button.pressed.connect(_toggle_pause)
 
 func _make_button(root: Control, caption: String, offset: Vector2, button_size: Vector2, action: String) -> void:
 	var button := Button.new()
@@ -623,6 +674,9 @@ func _unhandled_input(event: InputEvent) -> void:
 			steer_right = event.pressed
 
 func _physics_process(delta: float) -> void:
+	if not game_started or game_paused:
+		return
+	var previous_position := car.global_position
 	if throttle:
 		speed = move_toward(speed, MAX_SPEED, ACCEL * delta)
 	elif brake:
@@ -643,6 +697,11 @@ func _physics_process(delta: float) -> void:
 	car.velocity = forward * speed
 	car.velocity.y = -1.0
 	car.move_and_slide()
+	mission_distance += car.global_position.distance_to(previous_position)
+	if distance_label:
+		distance_label.text = "مسافت: %d متر" % int(mission_distance)
+	if current_mission > 0 and mission_distance >= mission_target:
+		_finish_mission(true)
 
 	var target := car.global_position + Vector3(0, 5.0, 0) - forward * 9.2
 	camera.global_position = camera.global_position.lerp(target, 1.0 - exp(-4.5 * delta))
@@ -658,6 +717,187 @@ func _physics_process(delta: float) -> void:
 		gear_label.text = "دنده: 3"
 	else:
 		gear_label.text = "دنده: 4"
+
+
+
+func _show_main_menu() -> void:
+	game_started = false
+	game_paused = false
+	var overlay := ColorRect.new()
+	overlay.name = "MainMenuOverlay"
+	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay.color = Color(0.015, 0.025, 0.045, 0.90)
+	hud_root.add_child(overlay)
+	var panel := PanelContainer.new()
+	panel.set_anchors_preset(Control.PRESET_CENTER)
+	panel.position = Vector2(-300, -250)
+	panel.size = Vector2(600, 500)
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.025, 0.055, 0.09, 0.97)
+	style.border_color = Color(0.82, 0.58, 0.22, 1.0)
+	style.set_border_width_all(2)
+	style.set_corner_radius_all(22)
+	style.content_margin_left = 28
+	style.content_margin_right = 28
+	style.content_margin_top = 24
+	style.content_margin_bottom = 24
+	panel.add_theme_stylebox_override("panel", style)
+	overlay.add_child(panel)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 14)
+	panel.add_child(column)
+	var title := Label.new()
+	title.text = "CHINOCK"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 48)
+	title.add_theme_color_override("font_color", Color(1.0, 0.76, 0.34))
+	column.add_child(title)
+	var subtitle := Label.new()
+	subtitle.text = "شهر زنده | رانندگی آزاد و مأموریت‌ها"
+	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	subtitle.add_theme_font_size_override("font_size", 20)
+	subtitle.add_theme_color_override("font_color", Color(0.82, 0.89, 0.98))
+	column.add_child(subtitle)
+	_add_menu_button(column, "شروع رانندگی آزاد", _start_free_drive)
+	_add_menu_button(column, "مأموریت سرعت – ۹۰ ثانیه", _start_time_trial)
+	_add_menu_button(column, "انتخاب رنگ خودرو", _cycle_car_paint)
+	var note := Label.new()
+	note.text = "نسخه آزمایشی آفلاین • کنترل لمسی و کیبورد"
+	note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	note.add_theme_font_size_override("font_size", 15)
+	note.add_theme_color_override("font_color", Color(0.62, 0.72, 0.82))
+	column.add_child(note)
+
+func _add_menu_button(parent: VBoxContainer, caption: String, action: Callable) -> void:
+	var button := Button.new()
+	button.text = caption
+	button.custom_minimum_size = Vector2(0, 62)
+	button.add_theme_font_size_override("font_size", 23)
+	var normal := StyleBoxFlat.new()
+	normal.bg_color = Color(0.08, 0.16, 0.23, 1.0)
+	normal.border_color = Color(0.72, 0.48, 0.19, 0.9)
+	normal.set_border_width_all(1)
+	normal.set_corner_radius_all(12)
+	button.add_theme_stylebox_override("normal", normal)
+	button.add_theme_color_override("font_color", Color(0.97, 0.98, 1.0))
+	parent.add_child(button)
+	button.pressed.connect(action)
+
+func _clear_menu() -> void:
+	var old_menu := hud_root.get_node_or_null("MainMenuOverlay")
+	if old_menu:
+		old_menu.queue_free()
+	var result_menu := hud_root.get_node_or_null("ResultOverlay")
+	if result_menu:
+		result_menu.queue_free()
+
+func _start_free_drive() -> void:
+	_clear_menu()
+	current_mission = 0
+	mission_time = 0.0
+	mission_distance = 0.0
+	mission_label.text = "رانندگی آزاد"
+	timer_label.text = "بدون محدودیت زمانی"
+	game_started = true
+	game_paused = false
+
+func _start_time_trial() -> void:
+	_clear_menu()
+	current_mission = 1
+	mission_time = 90.0
+	mission_elapsed = 0.0
+	mission_distance = 0.0
+	mission_target = 900.0
+	mission_label.text = "مأموریت سرعت: رسیدن به ۹۰۰ متر"
+	timer_label.text = "زمان: ۹۰"
+	game_started = true
+	game_paused = false
+
+func _cycle_car_paint() -> void:
+	selected_car = (selected_car + 1) % car_paints.size()
+	var body := car.get_node_or_null("SportsBody") as MeshInstance3D
+	var hood := car.get_node_or_null("FrontHood") as MeshInstance3D
+	var roof := car.get_node_or_null("Roof") as MeshInstance3D
+	if body:
+		body.material_override = _material(car_paints[selected_car], 0.82, 0.2)
+	if hood:
+		hood.material_override = _material(car_paints[selected_car].lightened(0.12), 0.78, 0.2)
+	if roof:
+		roof.material_override = _material(car_paints[selected_car].darkened(0.18), 0.75, 0.18)
+	var old_menu := hud_root.get_node_or_null("MainMenuOverlay")
+	if old_menu:
+		var title := old_menu.find_child("*", true, false)
+		# The selected paint is applied immediately; menu remains open.
+		pass
+
+func _toggle_pause() -> void:
+	if not game_started:
+		return
+	game_paused = not game_paused
+	if game_paused:
+		_show_pause_menu()
+	else:
+		_clear_menu()
+
+func _show_pause_menu() -> void:
+	_clear_menu()
+	var overlay := ColorRect.new()
+	overlay.name = "MainMenuOverlay"
+	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay.color = Color(0.01, 0.02, 0.04, 0.78)
+	hud_root.add_child(overlay)
+	var panel := PanelContainer.new()
+	panel.set_anchors_preset(Control.PRESET_CENTER)
+	panel.position = Vector2(-210, -125)
+	panel.size = Vector2(420, 250)
+	var column := VBoxContainer.new()
+	panel.add_child(column)
+	overlay.add_child(panel)
+	var title := Label.new()
+	title.text = "بازی متوقف شد"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 30)
+	column.add_child(title)
+	_add_menu_button(column, "ادامه بازی", func(): _toggle_pause())
+	_add_menu_button(column, "بازگشت به منوی اصلی", func():
+		game_started = false
+		game_paused = false
+		_clear_menu()
+		_show_main_menu()
+	)
+
+func _finish_mission(success: bool) -> void:
+	if not game_started:
+		return
+	game_started = false
+	game_paused = true
+	var overlay := ColorRect.new()
+	overlay.name = "ResultOverlay"
+	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay.color = Color(0.01, 0.02, 0.04, 0.82)
+	hud_root.add_child(overlay)
+	var panel := PanelContainer.new()
+	panel.set_anchors_preset(Control.PRESET_CENTER)
+	panel.position = Vector2(-240, -150)
+	panel.size = Vector2(480, 300)
+	var column := VBoxContainer.new()
+	panel.add_child(column)
+	overlay.add_child(panel)
+	var title := Label.new()
+	title.text = "مأموریت موفق!" if success else "زمان مأموریت تمام شد"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 30)
+	column.add_child(title)
+	var detail := Label.new()
+	detail.text = "مسافت طی‌شده: %d متر" % int(mission_distance)
+	detail.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	column.add_child(detail)
+	_add_menu_button(column, "تلاش دوباره", _start_time_trial)
+	_add_menu_button(column, "منوی اصلی", func():
+		game_paused = false
+		_clear_menu()
+		_show_main_menu()
+	)
 
 
 func _build_logo(root: Control) -> void:
