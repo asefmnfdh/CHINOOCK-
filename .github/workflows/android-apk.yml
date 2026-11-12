@@ -1,4 +1,4 @@
-name: Build CHINOOCK Android APK
+name: Build CHINOK Android APK
 
 on:
   workflow_dispatch:
@@ -84,15 +84,15 @@ jobs:
           export GODOT_ANDROID_KEYSTORE_DEBUG_PATH="$HOME/debug.keystore"
           export GODOT_ANDROID_KEYSTORE_DEBUG_USER="androiddebugkey"
           export GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD="android"
-          godot --headless --verbose --path . --export-debug "Android" build/CHINOOCK-debug.apk
+          godot --headless --verbose --path . --export-debug "Android" build/CHINOK.apk
 
       - name: Verify APK output
-        run: test -s build/CHINOOCK-debug.apk
+        run: test -s build/CHINOK.apk
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: CHINOOCK-Android-APK
-          path: build/CHINOOCK-debug.apk
+          name: CHINOK-Android-APK
+          path: build/CHINOK.apk
           if-no-files-found: error
           retention-days: 14
