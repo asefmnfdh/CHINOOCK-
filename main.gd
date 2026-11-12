@@ -644,9 +644,12 @@ func _update_vehicle_audio(_delta: float) -> void:
 			squeal = maxf(squeal, 0.07)
 		if not game_started or game_paused:
 			squeal = 0.0
-		var tire_frequency := 780.0 + absf(speed) * 9.0
+		# A rough, low tyre-scrub texture instead of a pure high-pitched beep.
+		var tire_frequency := 430.0 + absf(speed) * 5.0
 		for i in range(tire_frames):
-			var sample := sin(tire_phase) * squeal
+			var texture := sin(tire_phase) * 0.42 + sin(tire_phase * 1.61) * 0.27 + sin(tire_phase * 2.37) * 0.19 + sin(tire_phase * 3.13) * 0.12
+			var modulation := 0.78 + 0.22 * sin(tire_phase * 0.19)
+			var sample := texture * modulation * squeal
 			tire_buffer[i] = Vector2(sample, sample)
 			tire_phase = fmod(tire_phase + TAU * tire_frequency / AUDIO_RATE, TAU)
 		tire_playback.push_buffer(tire_buffer)
