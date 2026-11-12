@@ -1,0 +1,43 @@
+name: Build CHINOOCK Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "main" ]
+
+permissions:
+  contents: read
+
+jobs:
+  build-android:
+    name: Export Android APK
+    runs-on: ubuntu-latest
+    container:
+      image: barichello/godot-ci:4.3.0
+    steps:
+      - name: Checkout project
+        uses: actions/checkout@v4
+
+      - name: Prepare build directory
+        run: mkdir -p build
+
+      - name: Validate project files
+        run: |
+          test -f project.godot
+          test -f Main.tscn
+          test -f main.gd
+          test -f export_presets.cfg
+
+      - name: Import project resources
+        run: godot --headless --editor --path . --quit
+
+      - name: Export Android APK
+        run: godot --headless --path . --export-debug "Android" build/CHINOOCK-debug.apk
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: CHINOOCK-Android-APK
+          path: build/CHINOOCK-debug.apk
+          if-no-files-found: error
+          retention-days: 14
