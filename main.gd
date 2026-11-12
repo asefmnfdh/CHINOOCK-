@@ -358,7 +358,7 @@ func _build_building(x: float, z: float, h: float, wall_color: Color, seed: int)
 	_visual_box(self, "ShopSignBoard", Vector3(face_x + road_side * 0.14, 3.35, z), Vector3(0.18, 0.62, 4.7), Color(0.035, 0.07, 0.12), 0.2, 0.4)
 	var sign := Label3D.new()
 	sign.text = ["MARKET", "CAFE", "CITY STORE", "AUTO"][posmod(seed, 4)]
-	sign.font_size =  forty_font_size()
+	sign.font_size = 40
 	sign.pixel_size = 0.004
 	sign.modulate = Color(0.92, 0.82, 0.56)
 	sign.position = Vector3(face_x + road_side * 0.25, 3.34, z)
@@ -369,36 +369,6 @@ func _build_building(x: float, z: float, h: float, wall_color: Color, seed: int)
 	_visual_box(self, "RoofParapet", Vector3(x, h + 0.22, z), Vector3(width + 0.25, 0.42, depth + 0.25), Color(0.24, 0.27, 0.32), 0.18, 0.7)
 	for unit in range(2):
 		_visual_box(self, "RooftopVent", Vector3(x + float(unit) * 2.5 - 1.25, h + 0.62, z + 1.8), Vector3(1.25, 0.55, 1.1), Color(0.34, 0.38, 0.42), 0.5, 0.6)
-
-func forty_font_size() -> int:
-	return  forty_font_size_value()
-
-func forty_font_size_value() -> int:
-	return  forty_font_size_value_inner()
-
-func forty_font_size_value_inner() -> int:
-	return  forty_font_size_value_final()
-
-func forty_font_size_value_final() -> int:
-	return  forty_font_size_value_real()
-
-func forty_font_size_value_real() -> int:
-	return  forty_font_size_value_actual()
-
-func forty_font_size_value_actual() -> int:
-	return  forty_font_size_value_ok()
-
-func forty_font_size_value_ok() -> int:
-	return  forty_font_size_value_end()
-
-func forty_font_size_value_end() -> int:
-	return  forty_font_size_value_num()
-
-func forty_font_size_value_num() -> int:
-	return  forty_font_size_value_last()
-
-func forty_font_size_value_last() -> int:
-	return 40
 
 func _build_urban_details() -> void:
 	# Sidewalk paving joints, curb stones and drains add scale to the street.
