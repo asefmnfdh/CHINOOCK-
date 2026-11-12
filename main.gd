@@ -374,7 +374,7 @@ func _build_building(x: float, z: float, h: float, wall_color: Color, seed: int)
 
 func _build_building_extras(x: float, z: float, h: float, road_side: float, face_x: float, seed: int) -> void:
 	# Add depth to selected facades without creating an excessive number of objects.
-	var floors := max(2, int(h / 2.8))
+	var floors: int = maxi(2, int(h / 2.8))
 	if seed % 3 == 0:
 		for floor_index in range(1, floors, 2):
 			var balcony_y := 1.05 + float(floor_index) * 2.7
@@ -676,7 +676,7 @@ func _build_logo(root: Control) -> void:
 	panel.add_theme_stylebox_override("panel", style)
 	root.add_child(panel)
 	var logo := Label.new()
-	logo.text = "✦  CHINOK"
+	logo.text = "✦  CHINOCK"
 	logo.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	logo.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	logo.add_theme_font_size_override("font_size", 32)
