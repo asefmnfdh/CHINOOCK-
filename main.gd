@@ -106,6 +106,90 @@ func _build_world() -> void:
 			_build_streetlight(-10.8, z - 5.0)
 			_build_streetlight(10.8, z - 1.0)
 
+	_build_city_details()
+
+func _build_city_details() -> void:
+	# Crosswalks, intersection markings and pedestrian islands.
+	for z in [-72.0, -18.0, 36.0, 90.0]:
+		for i in range(12):
+			var x := -7.5 + float(i) * 1.35
+			_visual_box(self, "CrosswalkStripe", Vector3(x, 0.075, z), Vector3(0.78, 0.025, 3.4), Color(0.86, 0.88, 0.86))
+		_visual_box(self, "StopLineLeft", Vector3(-4.3, 0.078, z - 3.0), Vector3(7.8, 0.025, 0.16), Color(0.92, 0.91, 0.82))
+		_visual_box(self, "StopLineRight", Vector3(4.3, 0.078, z - 3.0), Vector3(7.8, 0.025, 0.16), Color(0.92, 0.91, 0.82))
+		_build_traffic_signal(-9.0, z - 4.5, true)
+		_build_traffic_signal(9.0, z - 4.5, false)
+
+	# Street furniture, planted areas and parking bays.
+	for i in range(18):
+		var z := -104.0 + float(i) * 12.0
+		var side := -1.0 if i % 2 == 0 else 1.0
+		_build_planter(side * 10.0, z)
+		if i % 3 == 0:
+			_build_bench(-side * 10.0, z + 3.0)
+		if i % 4 == 1:
+			_build_bin(side * 9.9, z + 2.0)
+		if i % 5 == 0:
+			_build_parked_car(side * 7.15, z - 3.0, i)
+
+	# Decorative road arrows and lane guidance.
+	for z in [-48.0, 12.0, 72.0]:
+		_visual_box(self, "LaneArrowStem", Vector3(-3.0, 0.085, z), Vector3(0.13, 0.025, 2.0), Color(0.78, 0.81, 0.80))
+		_visual_box(self, "LaneArrowHead", Vector3(-3.0, 0.085, z + 1.0), Vector3(1.0, 0.025, 0.14), Color(0.78, 0.81, 0.80))
+
+func _build_traffic_signal(x: float, z: float, faces_right: bool) -> void:
+	var pole := MeshInstance3D.new()
+	var pole_mesh := CylinderMesh.new()
+	pole_mesh.top_radius = 0.055
+	pole_mesh.bottom_radius = 0.075
+	pole_mesh.height = 4.3
+	pole.mesh = pole_mesh
+	pole.material_override = _material(Color(0.10, 0.13, 0.16), 0.65, 0.35)
+	pole.position = Vector3(x, 2.15, z)
+	add_child(pole)
+	var direction := 1.0 if faces_right else -1.0
+	_visual_box(self, "SignalHousing", Vector3(x + direction * 0.42, 3.55, z), Vector3(0.48, 1.12, 0.34), Color(0.035, 0.045, 0.055), 0.35, 0.35)
+	for j in range(3):
+		var colors := [Color(0.9, 0.035, 0.025), Color(0.95, 0.55, 0.035), Color(0.04, 0.72, 0.20)]
+		var lamp_mat := _material(colors[j], 0.0, 0.2)
+		lamp_mat.emission_enabled = true
+		lamp_mat.emission = colors[j]
+		lamp_mat.emission_energy_multiplier = 0.35
+		var lamp := _visual_box(self, "SignalLamp", Vector3(x + direction * 0.42, 3.9 - float(j) * 0.34, z + 0.19), Vector3(0.25, 0.23, 0.035), colors[j], 0.0, 0.2)
+		lamp.material_override = lamp_mat
+
+func _build_planter(x: float, z: float) -> void:
+	_visual_box(self, "StonePlanter", Vector3(x, 0.28, z), Vector3(1.25, 0.48, 2.0), Color(0.28, 0.31, 0.32), 0.0, 0.9)
+	_visual_box(self, "PlanterSoil", Vector3(x, 0.54, z), Vector3(1.08, 0.06, 1.82), Color(0.16, 0.11, 0.07))
+	_build_tree(x, z, 0.65)
+
+func _build_bench(x: float, z: float) -> void:
+	_visual_box(self, "BenchSeat", Vector3(x, 0.55, z), Vector3(1.65, 0.12, 0.48), Color(0.30, 0.17, 0.09), 0.1, 0.7)
+	_visual_box(self, "BenchBack", Vector3(x, 0.92, z - 0.19), Vector3(1.65, 0.62, 0.10), Color(0.28, 0.15, 0.08), 0.1, 0.7)
+	for dx in [-0.62, 0.62]:
+		_visual_box(self, "BenchLeg", Vector3(x + dx, 0.28, z), Vector3(0.09, 0.55, 0.10), Color(0.08, 0.10, 0.12), 0.7, 0.4)
+
+func _build_bin(x: float, z: float) -> void:
+	_visual_box(self, "StreetBin", Vector3(x, 0.48, z), Vector3(0.48, 0.92, 0.48), Color(0.10, 0.24, 0.20), 0.15, 0.75)
+	_visual_box(self, "BinLid", Vector3(x, 0.96, z), Vector3(0.54, 0.08, 0.54), Color(0.07, 0.11, 0.10), 0.3, 0.5)
+
+func _build_parked_car(x: float, z: float, variant: int) -> void:
+	var colors := [Color(0.72, 0.73, 0.75), Color(0.08, 0.12, 0.18), Color(0.48, 0.08, 0.055), Color(0.72, 0.58, 0.30)]
+	var paint := colors[variant % colors.size()]
+	_visual_box(self, "ParkedVehicleBody", Vector3(x, 0.68, z), Vector3(1.9, 0.68, 3.8), paint, 0.72, 0.28)
+	_visual_box(self, "ParkedVehicleCabin", Vector3(x, 1.12, z - 0.12), Vector3(1.48, 0.58, 1.9), Color(0.035, 0.09, 0.13), 0.5, 0.18)
+	for side in [-1.0, 1.0]:
+		for offset in [-1.18, 1.18]:
+			var wheel := MeshInstance3D.new()
+			var wheel_mesh := CylinderMesh.new()
+			wheel_mesh.top_radius = 0.32
+			wheel_mesh.bottom_radius = 0.32
+			wheel_mesh.height = 0.18
+			wheel.mesh = wheel_mesh
+			wheel.rotation_degrees.z = 90
+			wheel.position = Vector3(x + side * 0.94, 0.36, z + offset)
+			wheel.material_override = _material(Color(0.015, 0.018, 0.022), 0.0, 0.9)
+			add_child(wheel)
+
 func _build_building(x: float, z: float, h: float, wall_color: Color, seed: int) -> void:
 	var width := 11.5
 	var depth := 8.2
