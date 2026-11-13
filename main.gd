@@ -675,12 +675,12 @@ func _update_vehicle_audio(_delta: float) -> void:
 		exhaust_player.volume_db = lerpf(exhaust_player.volume_db, -10.0 if game_started and not game_paused and throttle else -80.0, 0.18)
 
 	var tire_frames := tire_playback.get_frames_available()
+	var tire_level := 0.0
 	if tire_frames > 0:
 		var tire_buffer := PackedVector2Array()
 		tire_buffer.resize(tire_frames)
 		var steer_amount := absf(float(steer_right) - float(steer_left))
 		var speed_factor := clampf(absf(speed) / MAX_SPEED, 0.0, 1.0)
-		var tire_level := 0.0
 		if game_started and not game_paused and absf(speed) > 2.5 and steer_amount > 0.05:
 			# Make tyre scrub audible during ordinary turns, not only extreme skids.
 			tire_level = clampf(0.22 + speed_factor * steer_amount * 0.72, 0.22, 0.78)
