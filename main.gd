@@ -247,6 +247,13 @@ func _build_city_life() -> void:
 
 func _process(delta: float) -> void:
 	_update_vehicle_audio(delta)
+	# Render-frame camera follow avoids visible stepping at the physics tick rate.
+	if is_instance_valid(car) and is_instance_valid(camera):
+		var forward := Vector3(sin(heading), 0.0, cos(heading))
+		var camera_target := car.global_position + Vector3(0.0, 5.4, 0.0) - forward * 11.0
+		camera.global_position = camera.global_position.lerp(camera_target, 1.0 - exp(-16.0 * delta))
+		camera.look_at(car.global_position + Vector3(0.0, 1.0, 0.0), Vector3.UP)
+		camera.fov = lerpf(camera.fov, 68.0 + clampf(absf(speed) / MAX_SPEED, 0.0, 1.0) * 7.0, 1.0 - exp(-4.5 * delta))
 	if game_started and not game_paused and current_mission > 0:
 		mission_elapsed += delta
 		mission_time = maxf(0.0, mission_time - delta)
@@ -672,21 +679,25 @@ func _update_vehicle_audio(_delta: float) -> void:
 		var tire_buffer := PackedVector2Array()
 		tire_buffer.resize(tire_frames)
 		var steer_amount := absf(float(steer_right) - float(steer_left))
-		var squeal := clampf((absf(speed) / MAX_SPEED) * steer_amount * 0.48, 0.0, 0.30)
-		if brake and absf(speed) > 8.0:
-			squeal = maxf(squeal, 0.10)
-		if not game_started or game_paused or absf(speed) < 5.0:
-			squeal = 0.0
-		# Broadband gritty friction texture, deliberately unlike the exhaust tone.
-		var tire_frequency := 170.0 + absf(speed) * 2.0
+		var speed_factor := clampf(absf(speed) / MAX_SPEED, 0.0, 1.0)
+		var tire_level := 0.0
+		if game_started and not game_paused and absf(speed) > 2.5 and steer_amount > 0.05:
+			# Make tyre scrub audible during ordinary turns, not only extreme skids.
+			tire_level = clampf(0.22 + speed_factor * steer_amount * 0.72, 0.22, 0.78)
+		if game_started and not game_paused and brake and absf(speed) > 5.0:
+			tire_level = maxf(tire_level, 0.30 + speed_factor * 0.30)
+		var tire_frequency := 210.0 + absf(speed) * 3.0
 		for i in range(tire_frames):
-			var texture := sin(tire_phase * 1.03) * 0.34 + sin(tire_phase * 2.71) * 0.24 + sin(tire_phase * 4.83) * 0.18 + sin(tire_phase * 7.17) * 0.14 + sin(tire_phase * 11.31) * 0.10
-			var modulation := 0.68 + 0.32 * sin(tire_phase * 0.11)
-			var sample := texture * modulation * squeal
+			# A rough, noise-like friction layer plus a faint high tyre squeal.
+			var noise_sample := randf_range(-1.0, 1.0)
+			var texture := sin(tire_phase * 1.03) * 0.16 + sin(tire_phase * 2.71) * 0.12 + sin(tire_phase * 4.83) * 0.10
+			var squeal_tone := sin(tire_phase * 8.7) * 0.12
+			var sample := (noise_sample * 0.62 + texture + squeal_tone) * tire_level
 			tire_buffer[i] = Vector2(sample, sample)
 			tire_phase = fmod(tire_phase + TAU * tire_frequency / AUDIO_RATE, TAU)
 		tire_playback.push_buffer(tire_buffer)
-	tire_player.volume_db = lerpf(tire_player.volume_db, -8.0 if game_started and not game_paused else -80.0, 0.16)
+	var tire_active := game_started and not game_paused and (tire_level > 0.0)
+	tire_player.volume_db = lerpf(tire_player.volume_db, -2.0 if tire_active else -80.0, 0.22)
 
 func _build_ui() -> void:
 	var layer := CanvasLayer.new()
@@ -814,11 +825,7 @@ func _physics_process(delta: float) -> void:
 	if current_mission > 0 and mission_distance >= mission_target:
 		_finish_mission(true)
 
-	# Firm third-person chase camera that follows the car's heading.
-	var camera_target := car.global_position + Vector3(0, 5.4, 0) - forward * 11.0
-	camera.global_position = camera.global_position.lerp(camera_target, 1.0 - exp(-10.0 * delta))
-	camera.look_at(car.global_position + Vector3(0, 1.0, 0), Vector3.UP)
-	camera.fov = lerpf(camera.fov, 68.0 + clampf(absf(speed) / MAX_SPEED, 0.0, 1.0) * 7.0, 1.0 - exp(-3.5 * delta))
+	# Camera is updated in _process for smooth render-frame following.
 	speed_label.text = str(round(abs(speed) * 3.6)) + " km/h"
 	if abs(speed) < 0.5:
 		gear_label.text = "دنده: N"
