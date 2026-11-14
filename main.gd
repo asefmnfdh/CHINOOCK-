@@ -813,11 +813,15 @@ func _input(event: InputEvent) -> void:
 			var size := get_viewport().get_visible_rect().size
 			var p: Vector2 = event.position
 			var action := ""
-			if p.y >= size.y - 150.0:
-				if p.x < size.x * 0.42:
-					action = "left" if p.x < size.x * 0.22 else "right"
-				elif p.x >= size.x * 0.58:
-					action = "gas" if p.x < size.x * 0.82 else "brake"
+			if p.y >= size.y - 135.0:
+				if p.x >= 28.0 and p.x <= 128.0:
+					action = "left"
+				elif p.x >= 142.0 and p.x <= 242.0:
+					action = "right"
+				elif p.x >= size.x - 252.0 and p.x <= size.x - 140.0:
+					action = "gas"
+				elif p.x >= size.x - 128.0 and p.x <= size.x - 16.0:
+					action = "brake"
 			if action != "":
 				touch_actions[event.index] = action
 		else:
@@ -828,11 +832,15 @@ func _input(event: InputEvent) -> void:
 			var size := get_viewport().get_visible_rect().size
 			var p: Vector2 = event.position
 			var action := ""
-			if p.y >= size.y - 150.0:
-				if p.x < size.x * 0.42:
-					action = "left" if p.x < size.x * 0.22 else "right"
-				elif p.x >= size.x * 0.58:
-					action = "gas" if p.x < size.x * 0.82 else "brake"
+			if p.y >= size.y - 135.0:
+				if p.x >= 28.0 and p.x <= 128.0:
+					action = "left"
+				elif p.x >= 142.0 and p.x <= 242.0:
+					action = "right"
+				elif p.x >= size.x - 252.0 and p.x <= size.x - 140.0:
+					action = "gas"
+				elif p.x >= size.x - 128.0 and p.x <= size.x - 16.0:
+					action = "brake"
 			if action == "":
 				touch_actions.erase(event.index)
 			else:
