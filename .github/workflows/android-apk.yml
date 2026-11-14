@@ -76,8 +76,15 @@ jobs:
           test -f main.gd
           test -f export_presets.cfg
 
-      - name: Import project resources
-        run: godot --headless --editor --path . --quit
+      - name: Import project resources and fail on script errors
+        shell: bash
+        run: |
+          set -o pipefail
+          godot --headless --editor --path . --quit 2>&1 | tee godot-import.log
+          if grep -Eq "SCRIPT ERROR|ERROR: Failed to load script" godot-import.log; then
+            echo "Godot reported a script loading error."
+            exit 1
+          fi
 
       - name: Export Android APK
         run: |
