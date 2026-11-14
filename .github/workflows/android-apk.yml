@@ -1,4 +1,5 @@
 name: Build CHINOCK Android APK
+# Validate the open-city development branch as well as the stable release branch.
 
 on:
   workflow_dispatch:
