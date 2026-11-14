@@ -5,6 +5,7 @@ var camera: Camera3D
 var city_root: Node3D
 var speed_label: Label
 var gear_label: Label
+var touch_actions: Dictionary = {}
 var steer_left := false
 var steer_right := false
 var throttle := false
@@ -49,7 +50,7 @@ const MAX_SPEED := 42.0
 const ACCEL := 20.0
 const BRAKE_POWER := 34.0
 const DRAG := 4.5
-const TURN_RATE := 1.55
+const TURN_RATE := 2.15
 
 func _ready() -> void:
 	_build_world()
@@ -805,6 +806,45 @@ func _set_action(action: String, value: bool) -> void:
 		"gas": throttle = value
 		"brake": brake = value
 
+func _input(event: InputEvent) -> void:
+	# Track each finger independently so gas and steering can be pressed together.
+	if event is InputEventScreenTouch:
+		if event.pressed:
+			var size := get_viewport().get_visible_rect().size
+			var p: Vector2 = event.position
+			var action := ""
+			if p.y >= size.y - 150.0:
+				if p.x < size.x * 0.42:
+					action = "left" if p.x < size.x * 0.22 else "right"
+				elif p.x >= size.x * 0.58:
+					action = "gas" if p.x < size.x * 0.82 else "brake"
+			if action != "":
+				touch_actions[event.index] = action
+		else:
+			touch_actions.erase(event.index)
+		_update_touch_actions()
+	elif event is InputEventScreenDrag:
+		if touch_actions.has(event.index):
+			var size := get_viewport().get_visible_rect().size
+			var p: Vector2 = event.position
+			var action := ""
+			if p.y >= size.y - 150.0:
+				if p.x < size.x * 0.42:
+					action = "left" if p.x < size.x * 0.22 else "right"
+				elif p.x >= size.x * 0.58:
+					action = "gas" if p.x < size.x * 0.82 else "brake"
+			if action == "":
+				touch_actions.erase(event.index)
+			else:
+				touch_actions[event.index] = action
+			_update_touch_actions()
+
+func _update_touch_actions() -> void:
+	steer_left = touch_actions.values().has("left")
+	steer_right = touch_actions.values().has("right")
+	throttle = touch_actions.values().has("gas")
+	brake = touch_actions.values().has("brake")
+
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey:
 		if event.keycode == KEY_W or event.keycode == KEY_UP:
@@ -828,7 +868,7 @@ func _physics_process(delta: float) -> void:
 
 	var steer := float(steer_right) - float(steer_left)
 	if abs(speed) > 0.2:
-		heading -= steer * TURN_RATE * delta * clamp(abs(speed) / 8.0, 0.25, 1.0)
+		heading -= steer * TURN_RATE * delta * clampf(absf(speed) / 5.0, 0.45, 1.0)
 	car.rotation.y = heading
 	car.rotation.z = lerpf(car.rotation.z, -steer * 0.045, 1.0 - exp(-5.5 * delta))
 	var forward := Vector3(sin(heading), 0, cos(heading))
