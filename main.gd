@@ -157,9 +157,17 @@ func _build_world() -> void:
 		var h_left := 9.0 + float((i * 7) % 8)
 		var h_right := 10.0 + float((i * 5) % 9)
 		var colors := [Color(0.31, 0.36, 0.43), Color(0.43, 0.37, 0.33), Color(0.34, 0.42, 0.44), Color(0.40, 0.40, 0.47)]
-		_build_building(-18.0, z, h_left, colors[i % colors.size()], i)
-		_build_building(18.0, z - 4.5, h_right, colors[(i + 2) % colors.size()], i + 3)
-		if i % 2 == 0:
+		# Keep the crossing approaches clear: buildings close to an east-west road
+		# would otherwise protrude into its carriageway.
+		var near_crossing := false
+		for crossing_z in [-72.0, -18.0, 36.0, 90.0]:
+			if absf(z - crossing_z) < 10.0 or absf((z - 4.5) - crossing_z) < 10.0:
+				near_crossing = true
+				break
+		if not near_crossing:
+			_build_building(-18.0, z, h_left, colors[i % colors.size()], i)
+			_build_building(18.0, z - 4.5, h_right, colors[(i + 2) % colors.size()], i + 3)
+		if i % 2 == 0 and not near_crossing:
 			_build_tree(-11.1, z + 2.5, 1.0 + float(i % 3) * 0.12)
 			_build_tree(11.1, z - 2.5, 1.0 + float((i + 1) % 3) * 0.12)
 		if i % 3 == 0:
