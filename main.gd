@@ -695,25 +695,25 @@ func _update_vehicle_audio(_delta: float) -> void:
 		tire_buffer.resize(tire_frames)
 		var steer_amount := absf(float(steer_right) - float(steer_left))
 		var speed_factor := clampf(absf(speed) / MAX_SPEED, 0.0, 1.0)
-		if game_started and not game_paused and absf(speed) > 1.0 and steer_amount > 0.05:
-			# Stronger, clearly audible tyre scrub whenever the player steers while moving.
-			tire_level = clampf(0.48 + speed_factor * 0.48, 0.48, 0.96)
+		if game_started and not game_paused and absf(speed) > 0.8 and steer_amount > 0.0:
+			# Trigger as soon as a steering button is held while the car is moving.
+			tire_level = clampf(0.62 + speed_factor * 0.34, 0.62, 0.96)
 		if game_started and not game_paused and brake and absf(speed) > 5.0:
 			tire_level = maxf(tire_level, 0.34 + speed_factor * 0.34)
-		var tire_frequency := 300.0 + absf(speed) * 5.5
+		# A distinct high-pitched tyre squeal, not just low road noise.
+		var tire_frequency := 1050.0 + speed_factor * 520.0
 		for i in range(tire_frames):
 			var noise_sample := randf_range(-1.0, 1.0)
-			var scrub := sin(tire_phase) * 0.30 + sin(tire_phase * 2.17) * 0.20 + sin(tire_phase * 3.91) * 0.13
-			var squeal_frequency := 5.2 + speed_factor * 2.8
-			var squeal := sin(tire_phase * squeal_frequency) * 0.24
-			var modulation := 0.82 + 0.18 * sin(tire_phase * 0.11)
-			var sample := (noise_sample * 0.30 + scrub + squeal) * tire_level * modulation
+			var squeal := sin(tire_phase) * 0.72 + sin(tire_phase * 1.47) * 0.18 + sin(tire_phase * 2.03) * 0.10
+			var scrub := noise_sample * 0.16 + sin(tire_phase * 0.5) * 0.12
+			var modulation := 0.88 + 0.12 * sin(tire_phase * 0.025)
+			var sample := (squeal + scrub) * tire_level * modulation
 			tire_buffer[i] = Vector2(sample, sample)
 			tire_phase = fmod(tire_phase + TAU * tire_frequency / AUDIO_RATE, TAU)
 		tire_playback.push_buffer(tire_buffer)
 	var tire_active := game_started and not game_paused and tire_level > 0.0
 	# Keep tyre sound separate and audible over the quieter engine/exhaust layers.
-	tire_player.volume_db = lerpf(tire_player.volume_db, -2.0 if tire_active else -80.0, 0.45)
+	tire_player.volume_db = lerpf(tire_player.volume_db, 0.0 if tire_active else -80.0, 0.55)
 
 func _build_ui() -> void:
 	var layer := CanvasLayer.new()
@@ -862,12 +862,15 @@ func _physics_process(delta: float) -> void:
 
 
 func _show_main_menu() -> void:
+	# Remove every previous menu/result layer before creating a fresh interactive menu.
+	_clear_menu()
 	game_started = false
 	game_paused = false
 	var overlay := ColorRect.new()
 	overlay.name = "MainMenuOverlay"
 	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	overlay.color = Color(0.015, 0.025, 0.045, 0.90)
+	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hud_root.add_child(overlay)
 	var panel := PanelContainer.new()
 	panel.set_anchors_preset(Control.PRESET_CENTER)
@@ -925,12 +928,14 @@ func _add_menu_button(parent: VBoxContainer, caption: String, action: Callable) 
 	button.pressed.connect(action)
 
 func _clear_menu() -> void:
-	var old_menu := hud_root.get_node_or_null("MainMenuOverlay")
-	if old_menu:
-		old_menu.queue_free()
-	var result_menu := hud_root.get_node_or_null("ResultOverlay")
-	if result_menu:
-		result_menu.queue_free()
+	if not is_instance_valid(hud_root):
+		return
+	# Detach all matching layers immediately so an old transparent control
+	# can never remain above and intercept taps on the next menu.
+	for child in hud_root.get_children():
+		if child.name == "MainMenuOverlay" or child.name == "ResultOverlay":
+			hud_root.remove_child(child)
+			child.queue_free()
 
 func _start_free_drive() -> void:
 	_clear_menu()
