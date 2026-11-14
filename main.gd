@@ -259,10 +259,10 @@ func _process(delta: float) -> void:
 	_update_vehicle_audio(delta)
 	# Follow the interpolated physics transform to avoid camera judder between physics ticks.
 	if is_instance_valid(car) and is_instance_valid(camera):
-		var car_transform := car.get_global_transform_interpolated()
-		var car_position := car_transform.origin
-		var forward := car_transform.basis.z.normalized()
-		var camera_target := car_position + Vector3(0.0, 4.8, 0.0) - forward * 10.5
+		var car_transform: Transform3D = car.get_global_transform_interpolated()
+		var car_position: Vector3 = car_transform.origin
+		var forward: Vector3 = car_transform.basis.z.normalized()
+		var camera_target: Vector3 = car_position + Vector3(0.0, 4.8, 0.0) - forward * 10.5
 		# A faster exponential spring reduces the trailing delay without hard snapping.
 		camera.global_position = camera.global_position.lerp(camera_target, 1.0 - exp(-26.0 * delta))
 		camera.look_at(car_position + Vector3(0.0, 1.05, 0.0) + forward * 1.8, Vector3.UP)
