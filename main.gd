@@ -170,6 +170,7 @@ func _build_world() -> void:
 	_build_city_life()
 	_build_urban_details()
 	_build_grid_district()
+	_build_grid_traffic_controls()
 
 
 func _build_grid_district() -> void:
@@ -216,6 +217,44 @@ func _build_city_details() -> void:
 	for z in [-48.0, 12.0, 72.0]:
 		_visual_box(self, "LaneArrowStem", Vector3(-3.0, 0.085, z), Vector3(0.13, 0.025, 2.0), Color(0.78, 0.81, 0.80))
 		_visual_box(self, "LaneArrowHead", Vector3(-3.0, 0.085, z + 1.0), Vector3(1.0, 0.025, 0.14), Color(0.78, 0.81, 0.80))
+
+
+func _build_grid_traffic_controls() -> void:
+	# Traffic signals at selected avenue crossings; the existing signal cycle animates them.
+	for crossing in [[-56.0, -18.0], [28.0, -18.0], [-56.0, 36.0], [28.0, 36.0]]:
+		var cx: float = crossing[0]
+		var cz: float = crossing[1]
+		_build_traffic_signal(cx - 7.0, cz - 7.0, true)
+		_build_traffic_signal(cx + 7.0, cz + 7.0, false)
+
+	# Speed-limit and stop signs make the wider street grid easier to read.
+	for i in range(8):
+		var z := -88.0 + float(i) * 24.0
+		var side := -1.0 if i % 2 == 0 else 1.0
+		_build_road_sign(side * 13.0, z, "50", Color(0.88, 0.91, 0.94))
+	for z in [-72.0, -18.0, 36.0, 90.0]:
+		_build_road_sign(-13.0, z + 5.0, "STOP", Color(0.82, 0.08, 0.06))
+
+func _build_road_sign(x: float, z: float, caption: String, board_color: Color) -> void:
+	var post := MeshInstance3D.new()
+	var post_mesh := CylinderMesh.new()
+	post_mesh.top_radius = 0.035
+	post_mesh.bottom_radius = 0.055
+	post_mesh.height = 2.5
+	post.mesh = post_mesh
+	post.material_override = _material(Color(0.15, 0.17, 0.19), 0.65, 0.35)
+	post.position = Vector3(x, 1.25, z)
+	city_root.add_child(post)
+	var board := _visual_box(self, "RoadSignBoard", Vector3(x, 2.45, z), Vector3(1.05, 0.78, 0.12), board_color, 0.05, 0.45)
+	board.material_override = _material(board_color, 0.05, 0.45)
+	var label := Label3D.new()
+	label.text = caption
+	label.font_size = 48
+	label.pixel_size = 0.006
+	label.modulate = Color(0.08, 0.10, 0.12) if caption != "STOP" else Color.WHITE
+	label.position = Vector3(x, 2.45, z + 0.075)
+	label.rotation.y = PI
+	city_root.add_child(label)
 
 func _build_city_life() -> void:
 	# Moving traffic stays in the two opposing lanes, away from the player's center lane.
