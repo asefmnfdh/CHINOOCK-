@@ -34,7 +34,15 @@ var timer_label: Label
 var distance_label: Label
 var pause_button: Button
 var selected_car := 0
-var car_paints: Array[Color] = [Color(0.025, 0.24, 0.48), Color(0.62, 0.045, 0.035), Color(0.035, 0.045, 0.06)]
+var car_paints: Array[Color] = [
+	Color(0.025, 0.24, 0.48), Color(0.62, 0.045, 0.035),
+	Color(0.035, 0.045, 0.06), Color(0.92, 0.92, 0.88),
+	Color(0.78, 0.42, 0.08), Color(0.02, 0.42, 0.22),
+	Color(0.28, 0.08, 0.48), Color(0.18, 0.48, 0.62),
+	Color(0.48, 0.48, 0.50), Color(0.42, 0.12, 0.24)
+]
+var car_paint_names: Array[String] = ["آبی", "قرمز", "مشکی", "سفید", "طلایی", "سبز", "بنفش", "فیروزه‌ای", "نقره‌ای", "زرشکی"]
+var paint_status_label: Label
 var engine_player: AudioStreamPlayer
 var exhaust_player: AudioStreamPlayer
 var tire_player: AudioStreamPlayer
@@ -1117,17 +1125,26 @@ func _start_time_trial() -> void:
 	game_paused = false
 
 func _cycle_car_paint() -> void:
-	selected_car = (selected_car + 1) % car_paints.size()
-	var body := car.get_node_or_null("SportsBody") as MeshInstance3D
-	var hood := car.get_node_or_null("FrontHood") as MeshInstance3D
-	var roof := car.get_node_or_null("Roof") as MeshInstance3D
-	if body:
-		body.material_override = _material(car_paints[selected_car], 0.82, 0.2)
-	if hood:
-		hood.material_override = _material(car_paints[selected_car].lightened(0.12), 0.78, 0.2)
-	if roof:
-		roof.material_override = _material(car_paints[selected_car].darkened(0.18), 0.75, 0.18)
-	# Paint changes immediately while the menu stays open.
+	_select_car_paint((selected_car + 1) % car_paints.size())
+
+func _select_car_paint(paint_index: int) -> void:
+	if paint_index < 0 or paint_index >= car_paints.size():
+		return
+	selected_car = paint_index
+	var paint: Color = car_paints[selected_car]
+	for part_name in ["SportsBody", "FrontHood", "RearDeck", "Roof", "Spoiler"]:
+		var part := car.get_node_or_null(part_name) as MeshInstance3D
+		if part == null:
+			continue
+		var part_color := paint
+		if part_name == "FrontHood":
+			part_color = paint.lightened(0.12)
+		elif part_name == "Roof" or part_name == "RearDeck" or part_name == "Spoiler":
+			part_color = paint.darkened(0.16)
+		part.material_override = _material(part_color, 0.78, 0.2)
+	if is_instance_valid(paint_status_label):
+		paint_status_label.text = "رنگ فعلی: " + car_paint_names[selected_car]
+	# Keep the menu open so the player can compare colors and change again.
 
 func _toggle_pause() -> void:
 	if not game_started:
