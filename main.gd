@@ -280,20 +280,7 @@ func _build_city_life() -> void:
 		vehicle.position = Vector3(lane, 0.0, -105.0 + float(i) * 29.0)
 		var paint_colors := [Color(0.72, 0.12, 0.08), Color(0.08, 0.28, 0.62), Color(0.72, 0.72, 0.68), Color(0.08, 0.10, 0.13), Color(0.68, 0.48, 0.12)]
 		var paint: Color = paint_colors[i % paint_colors.size()]
-		_visual_box(vehicle, "TrafficBody", Vector3(0, 0.67, 0), Vector3(1.85, 0.68, 3.65), paint, 0.55, 0.3)
-		_visual_box(vehicle, "TrafficCabin", Vector3(0, 1.17, -0.15), Vector3(1.48, 0.58, 1.85), Color(0.035, 0.09, 0.14), 0.45, 0.2)
-		for side in [-1.0, 1.0]:
-			for offset in [-1.12, 1.12]:
-				var wheel := MeshInstance3D.new()
-				var wheel_mesh := CylinderMesh.new()
-				wheel_mesh.top_radius = 0.29
-				wheel_mesh.bottom_radius = 0.29
-				wheel_mesh.height = 0.16
-				wheel.mesh = wheel_mesh
-				wheel.rotation_degrees.z = 90
-				wheel.position = Vector3(side * 0.91, 0.34, offset)
-				wheel.material_override = _material(Color(0.012, 0.014, 0.018), 0.0, 0.9)
-				vehicle.add_child(wheel)
+		_build_city_vehicle(vehicle, Vector3.ZERO, i, paint, "Traffic")
 		city_root.add_child(vehicle)
 		traffic_vehicles.append(vehicle)
 		traffic_speeds.append(5.0 + float(i % 3) * 1.2)
@@ -436,22 +423,50 @@ func _build_bin(x: float, z: float) -> void:
 	_visual_box(self, "BinLid", Vector3(x, 0.96, z), Vector3(0.54, 0.08, 0.54), Color(0.07, 0.11, 0.10), 0.3, 0.5)
 
 func _build_parked_car(x: float, z: float, variant: int) -> void:
-	var colors := [Color(0.72, 0.73, 0.75), Color(0.08, 0.12, 0.18), Color(0.48, 0.08, 0.055), Color(0.72, 0.58, 0.30)]
+	var colors := [Color(0.72, 0.73, 0.75), Color(0.08, 0.12, 0.18), Color(0.48, 0.08, 0.055), Color(0.72, 0.58, 0.30), Color(0.025, 0.34, 0.38), Color(0.42, 0.44, 0.48)]
 	var paint: Color = colors[variant % colors.size()]
-	_visual_box(self, "ParkedVehicleBody", Vector3(x, 0.68, z), Vector3(1.9, 0.68, 3.8), paint, 0.72, 0.28)
-	_visual_box(self, "ParkedVehicleCabin", Vector3(x, 1.12, z - 0.12), Vector3(1.48, 0.58, 1.9), Color(0.035, 0.09, 0.13), 0.5, 0.18)
+	_build_city_vehicle(city_root, Vector3(x, 0.0, z), variant, paint, "Parked")
+
+func _build_city_vehicle(parent: Node3D, origin: Vector3, variant: int, paint: Color, prefix: String) -> void:
+	var body_size := Vector3(1.9, 0.68, 3.8)
+	var cabin_size := Vector3(1.48, 0.58, 1.9)
+	var cabin_y := 1.12
+	var wheel_radius := 0.30
+	if variant % 4 == 1: # SUV
+		body_size = Vector3(2.0, 0.82, 4.0)
+		cabin_size = Vector3(1.62, 0.78, 2.25)
+		cabin_y = 1.35
+		wheel_radius = 0.34
+	elif variant % 4 == 2: # Low sports coupe
+		body_size = Vector3(1.88, 0.52, 3.95)
+		cabin_size = Vector3(1.42, 0.48, 1.65)
+		cabin_y = 1.04
+		wheel_radius = 0.29
+	elif variant % 4 == 3: # Compact van
+		body_size = Vector3(1.95, 0.78, 3.75)
+		cabin_size = Vector3(1.62, 0.88, 2.45)
+		cabin_y = 1.36
+		wheel_radius = 0.32
+
+	_visual_box(parent, prefix + "Body", origin + Vector3(0, 0.68, 0), body_size, paint, 0.62, 0.27)
+	_visual_box(parent, prefix + "Cabin", origin + Vector3(0, cabin_y, -0.12), cabin_size, Color(0.035, 0.09, 0.14), 0.5, 0.18)
+	_visual_box(parent, prefix + "FrontBumper", origin + Vector3(0, 0.48, 1.91), Vector3(1.72, 0.16, 0.12), Color(0.12, 0.14, 0.16), 0.65, 0.3)
 	for side in [-1.0, 1.0]:
 		for offset in [-1.18, 1.18]:
 			var wheel := MeshInstance3D.new()
 			var wheel_mesh := CylinderMesh.new()
-			wheel_mesh.top_radius = 0.32
-			wheel_mesh.bottom_radius = 0.32
+			wheel_mesh.top_radius = wheel_radius
+			wheel_mesh.bottom_radius = wheel_radius
 			wheel_mesh.height = 0.18
 			wheel.mesh = wheel_mesh
 			wheel.rotation_degrees.z = 90
-			wheel.position = Vector3(x + side * 0.94, 0.36, z + offset)
+			wheel.position = origin + Vector3(side * 0.96, 0.36, offset)
 			wheel.material_override = _material(Color(0.015, 0.018, 0.022), 0.0, 0.9)
-			city_root.add_child(wheel)
+			parent.add_child(wheel)
+	for side in [-1.0, 1.0]:
+		var headlamp := _visual_box(parent, prefix + "Headlamp", origin + Vector3(side * 0.58, 0.73, 1.94), Vector3(0.42, 0.16, 0.06), Color(0.95, 0.88, 0.62), 0.1, 0.2)
+		headlamp.material_override = _material(Color(0.95, 0.88, 0.62), 0.0, 0.2)
+		_visual_box(parent, prefix + "TailLamp", origin + Vector3(side * 0.58, 0.73, -1.94), Vector3(0.36, 0.16, 0.06), Color(0.75, 0.025, 0.018), 0.0, 0.25)
 
 func _build_building(x: float, z: float, h: float, wall_color: Color, seed: int) -> void:
 	var width := 11.5
