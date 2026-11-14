@@ -169,6 +169,25 @@ func _build_world() -> void:
 	_build_city_details()
 	_build_city_life()
 	_build_urban_details()
+	_build_grid_district()
+
+
+func _build_grid_district() -> void:
+	# Fill the new street-grid blocks with compact, varied city buildings.
+	var district_x := [-70.0, -42.0, 42.0, 70.0]
+	var district_z := [-45.0, 9.0, 63.0]
+	var facade_colors := [Color(0.34, 0.39, 0.46), Color(0.46, 0.38, 0.31), Color(0.31, 0.43, 0.44), Color(0.42, 0.42, 0.49), Color(0.38, 0.35, 0.33)]
+	var building_seed := 40
+	for x in district_x:
+		for z in district_z:
+			var height := 11.0 + float(posmod(building_seed * 7, 10))
+			var wall: Color = facade_colors[posmod(building_seed, facade_colors.size())]
+			_build_building(x, z, height, wall, building_seed)
+			# Trees and low planters soften the space between each block and the road.
+			var tree_side := -1.0 if x < 0.0 else 1.0
+			_build_tree(x + tree_side * 7.2, z - 7.0, 0.78 + float(building_seed % 3) * 0.08)
+			_build_tree(x + tree_side * 7.2, z + 7.0, 0.82)
+			building_seed += 1
 
 func _build_city_details() -> void:
 	# Crosswalks, intersection markings and pedestrian islands.
