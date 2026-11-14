@@ -135,6 +135,16 @@ func _build_world() -> void:
 	_solid_box("AsphaltRoad", Vector3(0, -0.02, 0), Vector3(17, 0.12, 240), Color(0.075, 0.085, 0.105))
 	_solid_box("SidewalkLeft", Vector3(-9.7, 0.0, 0), Vector3(2.2, 0.24, 240), Color(0.58, 0.60, 0.60))
 	_solid_box("SidewalkRight", Vector3(9.7, 0.0, 0), Vector3(2.2, 0.24, 240), Color(0.58, 0.60, 0.60))
+
+	# Connected east-west avenues turn the old single corridor into a compact street grid.
+	for avenue_x in [-84.0, -56.0, -28.0, 28.0, 56.0, 84.0]:
+		_solid_box("NorthSouthAvenue", Vector3(avenue_x, -0.015, 0), Vector3(11.5, 0.11, 240), Color(0.075, 0.085, 0.105))
+		_visual_box(self, "AvenueCenterDash", Vector3(avenue_x, 0.06, 0), Vector3(0.13, 0.025, 240), Color(0.92, 0.82, 0.55))
+	for cross_z in [-72.0, -18.0, 36.0, 90.0]:
+		_solid_box("EastWestStreet", Vector3(0, -0.01, cross_z), Vector3(240, 0.11, 11.5), Color(0.075, 0.085, 0.105))
+		_visual_box(self, "CrossStreetDash", Vector3(0, 0.06, cross_z), Vector3(240, 0.025, 0.13), Color(0.92, 0.82, 0.55))
+		for side_z in [-7.2, 7.2]:
+			_solid_box("CrossStreetSidewalk", Vector3(0, 0.0, cross_z + side_z), Vector3(240, 0.22, 1.8), Color(0.55, 0.57, 0.57))
 	_visual_box(self, "RoadEdgeLeft", Vector3(-8.55, 0.08, 0), Vector3(0.12, 0.08, 240), Color(0.88, 0.84, 0.68))
 	_visual_box(self, "RoadEdgeRight", Vector3(8.55, 0.08, 0), Vector3(0.12, 0.08, 240), Color(0.88, 0.84, 0.68))
 
@@ -840,7 +850,19 @@ func _physics_process(delta: float) -> void:
 		city_root.reset_physics_interpolation()
 		if is_instance_valid(camera):
 			camera.global_position.z += city_shift
-	car.global_position.x = clampf(car.global_position.x, -7.2, 7.2)
+	# Wrap the player and city together on the east-west axis for continuous free roaming.
+	var city_shift_x := 0.0
+	if car.global_position.x > 112.0:
+		city_shift_x = -224.0
+	elif car.global_position.x < -112.0:
+		city_shift_x = 224.0
+	if not is_zero_approx(city_shift_x):
+		car.global_position.x += city_shift_x
+		city_root.position.x += city_shift_x
+		car.reset_physics_interpolation()
+		city_root.reset_physics_interpolation()
+		if is_instance_valid(camera):
+			camera.global_position.x += city_shift_x
 	if distance_label:
 		distance_label.text = "مسافت: %d متر" % int(mission_distance)
 	if current_mission > 0 and mission_distance >= mission_target:
