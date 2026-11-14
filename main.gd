@@ -2,6 +2,7 @@ extends Node3D
 
 var car: CharacterBody3D
 var camera: Camera3D
+var city_root: Node3D
 var speed_label: Label
 var gear_label: Label
 var steer_left := false
@@ -73,6 +74,8 @@ func _visual_box(parent: Node3D, n: String, pos: Vector3, size: Vector3, color: 
 	mesh.mesh = shape
 	mesh.material_override = _material(color, metallic, roughness)
 	mesh.position = pos
+	if parent == self and is_instance_valid(city_root):
+		parent = city_root
 	parent.add_child(mesh)
 	return mesh
 
@@ -91,7 +94,7 @@ func _solid_box(n: String, pos: Vector3, size: Vector3, color: Color) -> void:
 	shape.size = size
 	collision.shape = shape
 	body.add_child(collision)
-	add_child(body)
+	city_root.add_child(body)
 
 func _build_world() -> void:
 	var world_env := WorldEnvironment.new()
@@ -122,6 +125,11 @@ func _build_world() -> void:
 	sun.directional_shadow_max_distance = 95.0
 	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
 	add_child(sun)
+
+	# All road and city geometry lives under one root so the city can loop seamlessly.
+	city_root = Node3D.new()
+	city_root.name = "EndlessCityRoot"
+	add_child(city_root)
 
 	_solid_box("CityGround", Vector3(0, -0.65, 0), Vector3(260, 1, 260), Color(0.16, 0.31, 0.19))
 	_solid_box("AsphaltRoad", Vector3(0, -0.02, 0), Vector3(17, 0.12, 240), Color(0.075, 0.085, 0.105))
@@ -184,6 +192,7 @@ func _build_city_life() -> void:
 	for i in range(8):
 		var vehicle := Node3D.new()
 		vehicle.name = "TrafficVehicle"
+		vehicle.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_ON
 		var lane := -4.4 if i % 2 == 0 else 4.4
 		vehicle.position = Vector3(lane, 0.0, -105.0 + float(i) * 29.0)
 		var paint_colors := [Color(0.72, 0.12, 0.08), Color(0.08, 0.28, 0.62), Color(0.72, 0.72, 0.68), Color(0.08, 0.10, 0.13), Color(0.68, 0.48, 0.12)]
@@ -202,7 +211,7 @@ func _build_city_life() -> void:
 				wheel.position = Vector3(side * 0.91, 0.34, offset)
 				wheel.material_override = _material(Color(0.012, 0.014, 0.018), 0.0, 0.9)
 				vehicle.add_child(wheel)
-		add_child(vehicle)
+		city_root.add_child(vehicle)
 		traffic_vehicles.append(vehicle)
 		traffic_speeds.append(5.0 + float(i % 3) * 1.2)
 		traffic_directions.append(-1.0 if i % 2 == 0 else 1.0)
@@ -211,6 +220,7 @@ func _build_city_life() -> void:
 	for i in range(12):
 		var person := Node3D.new()
 		person.name = "WalkingPedestrian"
+		person.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_ON
 		var side := -1.0 if i % 2 == 0 else 1.0
 		person.position = Vector3(side * 10.0, 0.0, -100.0 + float(i) * 18.0)
 		var shirt_colors := [Color(0.72, 0.18, 0.12), Color(0.12, 0.28, 0.68), Color(0.78, 0.62, 0.22), Color(0.16, 0.42, 0.28)]
@@ -241,19 +251,22 @@ func _build_city_life() -> void:
 			leg.position = Vector3(leg_x, 0.38, 0)
 			person.add_child(leg)
 			person_legs.append(leg)
-		add_child(person)
+		city_root.add_child(person)
 		pedestrians.append(person)
 		pedestrian_legs.append(person_legs)
 
 func _process(delta: float) -> void:
 	_update_vehicle_audio(delta)
-	# Render-frame camera follow avoids visible stepping at the physics tick rate.
+	# Follow the interpolated physics transform to avoid camera judder between physics ticks.
 	if is_instance_valid(car) and is_instance_valid(camera):
-		var forward := Vector3(sin(heading), 0.0, cos(heading))
-		var camera_target := car.global_position + Vector3(0.0, 5.4, 0.0) - forward * 11.0
-		camera.global_position = camera.global_position.lerp(camera_target, 1.0 - exp(-16.0 * delta))
-		camera.look_at(car.global_position + Vector3(0.0, 1.0, 0.0), Vector3.UP)
-		camera.fov = lerpf(camera.fov, 68.0 + clampf(absf(speed) / MAX_SPEED, 0.0, 1.0) * 7.0, 1.0 - exp(-4.5 * delta))
+		var car_transform := car.get_global_transform_interpolated()
+		var car_position := car_transform.origin
+		var forward := car_transform.basis.z.normalized()
+		var camera_target := car_position + Vector3(0.0, 4.8, 0.0) - forward * 10.5
+		# A faster exponential spring reduces the trailing delay without hard snapping.
+		camera.global_position = camera.global_position.lerp(camera_target, 1.0 - exp(-26.0 * delta))
+		camera.look_at(car_position + Vector3(0.0, 1.05, 0.0) + forward * 1.8, Vector3.UP)
+		camera.fov = lerpf(camera.fov, 68.0 + clampf(absf(speed) / MAX_SPEED, 0.0, 1.0) * 7.0, 1.0 - exp(-5.0 * delta))
 	if game_started and not game_paused and current_mission > 0:
 		mission_elapsed += delta
 		mission_time = maxf(0.0, mission_time - delta)
@@ -311,7 +324,7 @@ func _build_traffic_signal(x: float, z: float, faces_right: bool) -> void:
 	pole.mesh = pole_mesh
 	pole.material_override = _material(Color(0.10, 0.13, 0.16), 0.65, 0.35)
 	pole.position = Vector3(x, 2.15, z)
-	add_child(pole)
+	city_root.add_child(pole)
 	var direction := 1.0 if faces_right else -1.0
 	_visual_box(self, "SignalHousing", Vector3(x + direction * 0.42, 3.55, z), Vector3(0.48, 1.12, 0.34), Color(0.035, 0.045, 0.055), 0.35, 0.35)
 	for j in range(3):
@@ -355,7 +368,7 @@ func _build_parked_car(x: float, z: float, variant: int) -> void:
 			wheel.rotation_degrees.z = 90
 			wheel.position = Vector3(x + side * 0.94, 0.36, z + offset)
 			wheel.material_override = _material(Color(0.015, 0.018, 0.022), 0.0, 0.9)
-			add_child(wheel)
+			city_root.add_child(wheel)
 
 func _build_building(x: float, z: float, h: float, wall_color: Color, seed: int) -> void:
 	var width := 11.5
@@ -374,7 +387,7 @@ func _build_building(x: float, z: float, h: float, wall_color: Color, seed: int)
 			window.mesh = pane
 			window.material_override = glass
 			window.position = Vector3(face_x, wy, wz)
-			add_child(window)
+			city_root.add_child(window)
 			_visual_box(self, "WindowFrame", Vector3(face_x + road_side * 0.045, wy, wz), Vector3(0.08, 0.09, 1.9), Color(0.10, 0.13, 0.17))
 	_visual_box(self, "BuildingCanopy", Vector3(x, 0.55, z), Vector3(width + 0.35, 0.35, depth + 0.35), Color(0.16, 0.19, 0.23), 0.25, 0.45)
 
@@ -394,7 +407,7 @@ func _build_building(x: float, z: float, h: float, wall_color: Color, seed: int)
 	shop_window.mesh = shop_pane
 	shop_window.material_override = shop_glass
 	shop_window.position = Vector3(face_x + road_side * 0.04, 1.75, z)
-	add_child(shop_window)
+	city_root.add_child(shop_window)
 	_visual_box(self, "ShopDoor", Vector3(face_x + road_side * 0.09, 1.25, z + 2.75), Vector3(0.12, 2.35, 0.95), Color(0.025, 0.11, 0.17), 0.45, 0.18)
 	_visual_box(self, "ShopAwning", Vector3(face_x + road_side * 0.55, 2.85, z), Vector3(0.95, 0.16, 5.5), Color(0.68, 0.25, 0.12), 0.1, 0.65)
 	_visual_box(self, "ShopSignBoard", Vector3(face_x + road_side * 0.14, 3.35, z), Vector3(0.18, 0.62, 4.7), Color(0.035, 0.07, 0.12), 0.2, 0.4)
@@ -405,7 +418,7 @@ func _build_building(x: float, z: float, h: float, wall_color: Color, seed: int)
 	sign.modulate = Color(0.92, 0.82, 0.56)
 	sign.position = Vector3(face_x + road_side * 0.25, 3.34, z)
 	sign.rotation.y = PI * 0.5 if road_side < 0.0 else -PI * 0.5
-	add_child(sign)
+	city_root.add_child(sign)
 
 	# Rooftop parapet and compact ventilation units.
 	_visual_box(self, "RoofParapet", Vector3(x, h + 0.22, z), Vector3(width + 0.25, 0.42, depth + 0.25), Color(0.24, 0.27, 0.32), 0.18, 0.7)
@@ -441,7 +454,7 @@ func _build_building_extras(x: float, z: float, h: float, road_side: float, face
 		billboard_text.modulate = Color(0.88, 0.94, 1.0)
 		billboard_text.position = Vector3(sign_x + road_side * 0.12, h + 2.15, z)
 		billboard_text.rotation.y = PI * 0.5 if road_side < 0.0 else -PI * 0.5
-		add_child(billboard_text)
+		city_root.add_child(billboard_text)
 
 func _build_urban_details() -> void:
 	# Sidewalk paving joints, curb stones and drains add scale to the street.
@@ -464,7 +477,7 @@ func _build_urban_details() -> void:
 		post.mesh = post_mesh
 		post.material_override = _material(Color(0.12, 0.15, 0.18), 0.7, 0.35)
 		post.position = Vector3(side * 10.65, 1.2, z)
-		add_child(post)
+		city_root.add_child(post)
 		_visual_box(self, "StreetNameSign", Vector3(side * 10.65, 2.25, z), Vector3(0.12, 0.42, 1.5), Color(0.035, 0.22, 0.18), 0.15, 0.45)
 	for z in [-94.0, -40.0, 14.0, 68.0]:
 		for i in range(3):
@@ -480,7 +493,7 @@ func _build_tree(x: float, z: float, scale_factor: float) -> void:
 	trunk.mesh = trunk_mesh
 	trunk.material_override = _material(Color(0.25, 0.16, 0.10))
 	trunk.position = Vector3(x, 0.85 * scale_factor, z)
-	add_child(trunk)
+	city_root.add_child(trunk)
 	var crown := MeshInstance3D.new()
 	var crown_mesh := SphereMesh.new()
 	crown_mesh.radius = 1.0 * scale_factor
@@ -488,7 +501,7 @@ func _build_tree(x: float, z: float, scale_factor: float) -> void:
 	crown.mesh = crown_mesh
 	crown.material_override = _material(Color(0.10, 0.34, 0.19), 0.0, 0.9)
 	crown.position = Vector3(x, 2.0 * scale_factor, z)
-	add_child(crown)
+	city_root.add_child(crown)
 
 func _build_streetlight(x: float, z: float) -> void:
 	var pole := MeshInstance3D.new()
@@ -499,7 +512,7 @@ func _build_streetlight(x: float, z: float) -> void:
 	pole.mesh = pole_mesh
 	pole.material_override = _material(Color(0.12, 0.15, 0.19), 0.65, 0.35)
 	pole.position = Vector3(x, 2.75, z)
-	add_child(pole)
+	city_root.add_child(pole)
 	var arm_dir := -1.0 if x < 0.0 else 1.0
 	_visual_box(self, "LampArm", Vector3(x + arm_dir * 0.65, 5.35, z), Vector3(1.35, 0.08, 0.08), Color(0.12, 0.15, 0.19), 0.6, 0.35)
 	var lamp_mat := _material(Color(1.0, 0.88, 0.57), 0.0, 0.2)
@@ -512,6 +525,7 @@ func _build_streetlight(x: float, z: float) -> void:
 func _build_car() -> void:
 	car = CharacterBody3D.new()
 	car.name = "PlayerCar"
+	car.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_ON
 	car.position = Vector3(0, 0.82, 35)
 	add_child(car)
 
@@ -682,22 +696,24 @@ func _update_vehicle_audio(_delta: float) -> void:
 		var steer_amount := absf(float(steer_right) - float(steer_left))
 		var speed_factor := clampf(absf(speed) / MAX_SPEED, 0.0, 1.0)
 		if game_started and not game_paused and absf(speed) > 2.5 and steer_amount > 0.05:
-			# Make tyre scrub audible during ordinary turns, not only extreme skids.
-			tire_level = clampf(0.22 + speed_factor * steer_amount * 0.72, 0.22, 0.78)
+			# Clear tyre scrub and a high-frequency squeal while cornering.
+			tire_level = clampf(0.24 + speed_factor * 0.62, 0.24, 0.82)
 		if game_started and not game_paused and brake and absf(speed) > 5.0:
-			tire_level = maxf(tire_level, 0.30 + speed_factor * 0.30)
-		var tire_frequency := 210.0 + absf(speed) * 3.0
+			tire_level = maxf(tire_level, 0.34 + speed_factor * 0.34)
+		var tire_frequency := 300.0 + absf(speed) * 5.5
 		for i in range(tire_frames):
-			# A rough, noise-like friction layer plus a faint high tyre squeal.
 			var noise_sample := randf_range(-1.0, 1.0)
-			var texture := sin(tire_phase * 1.03) * 0.16 + sin(tire_phase * 2.71) * 0.12 + sin(tire_phase * 4.83) * 0.10
-			var squeal_tone := sin(tire_phase * 8.7) * 0.12
-			var sample := (noise_sample * 0.62 + texture + squeal_tone) * tire_level
+			var scrub := sin(tire_phase) * 0.30 + sin(tire_phase * 2.17) * 0.20 + sin(tire_phase * 3.91) * 0.13
+			var squeal_frequency := 5.2 + speed_factor * 2.8
+			var squeal := sin(tire_phase * squeal_frequency) * 0.24
+			var modulation := 0.82 + 0.18 * sin(tire_phase * 0.11)
+			var sample := (noise_sample * 0.30 + scrub + squeal) * tire_level * modulation
 			tire_buffer[i] = Vector2(sample, sample)
 			tire_phase = fmod(tire_phase + TAU * tire_frequency / AUDIO_RATE, TAU)
 		tire_playback.push_buffer(tire_buffer)
-	var tire_active := game_started and not game_paused and (tire_level > 0.0)
-	tire_player.volume_db = lerpf(tire_player.volume_db, -2.0 if tire_active else -80.0, 0.22)
+	var tire_active := game_started and not game_paused and tire_level > 0.0
+	# Keep tyre sound separate and audible over the quieter engine/exhaust layers.
+	tire_player.volume_db = lerpf(tire_player.volume_db, -5.0 if tire_active else -80.0, 0.28)
 
 func _build_ui() -> void:
 	var layer := CanvasLayer.new()
@@ -815,10 +831,20 @@ func _physics_process(delta: float) -> void:
 	car.velocity.y = -1.0
 	car.move_and_slide()
 	mission_distance += absf(speed) * delta
+	# Move the complete city together with the player at the loop seam.
+	# This preserves all relative positions and prevents the road/buildings ending abruptly.
+	var city_shift := 0.0
 	if car.global_position.z > 112.0:
-		car.global_position.z = -112.0
+		city_shift = -224.0
 	elif car.global_position.z < -112.0:
-		car.global_position.z = 112.0
+		city_shift = 224.0
+	if not is_zero_approx(city_shift):
+		car.global_position.z += city_shift
+		city_root.position.z += city_shift
+		car.reset_physics_interpolation()
+		city_root.reset_physics_interpolation()
+		if is_instance_valid(camera):
+			camera.global_position.z += city_shift
 	car.global_position.x = clampf(car.global_position.x, -7.2, 7.2)
 	if distance_label:
 		distance_label.text = "مسافت: %d متر" % int(mission_distance)
