@@ -259,13 +259,13 @@ func _process(delta: float) -> void:
 	_update_vehicle_audio(delta)
 	# Follow the interpolated physics transform to avoid camera judder between physics ticks.
 	if is_instance_valid(car) and is_instance_valid(camera):
-		var car_transform: Transform3D = car.get_global_transform_interpolated()
-		var car_position: Vector3 = car_transform.origin
-		var forward: Vector3 = car_transform.basis.z.normalized()
-		var camera_target: Vector3 = car_position + Vector3(0.0, 4.8, 0.0) - forward * 10.5
-		# A faster exponential spring reduces the trailing delay without hard snapping.
-		camera.global_position = camera.global_position.lerp(camera_target, 1.0 - exp(-26.0 * delta))
-		camera.look_at(car_position + Vector3(0.0, 1.05, 0.0) + forward * 1.8, Vector3.UP)
+		# Follow the real car transform directly; do not depend on render interpolation.
+		var car_position: Vector3 = car.global_position
+		var forward: Vector3 = car.global_basis.z.normalized()
+		var camera_target: Vector3 = car_position + Vector3(0.0, 5.0, 0.0) - forward * 11.0
+		camera.current = true
+		camera.global_position = camera.global_position.lerp(camera_target, 1.0 - exp(-18.0 * delta))
+		camera.look_at(car_position + Vector3(0.0, 1.1, 0.0) + forward * 2.0, Vector3.UP)
 		camera.fov = lerpf(camera.fov, 68.0 + clampf(absf(speed) / MAX_SPEED, 0.0, 1.0) * 7.0, 1.0 - exp(-5.0 * delta))
 	if game_started and not game_paused and current_mission > 0:
 		mission_elapsed += delta
@@ -695,9 +695,9 @@ func _update_vehicle_audio(_delta: float) -> void:
 		tire_buffer.resize(tire_frames)
 		var steer_amount := absf(float(steer_right) - float(steer_left))
 		var speed_factor := clampf(absf(speed) / MAX_SPEED, 0.0, 1.0)
-		if game_started and not game_paused and absf(speed) > 2.5 and steer_amount > 0.05:
-			# Clear tyre scrub and a high-frequency squeal while cornering.
-			tire_level = clampf(0.24 + speed_factor * 0.62, 0.24, 0.82)
+		if game_started and not game_paused and absf(speed) > 1.0 and steer_amount > 0.05:
+			# Stronger, clearly audible tyre scrub whenever the player steers while moving.
+			tire_level = clampf(0.48 + speed_factor * 0.48, 0.48, 0.96)
 		if game_started and not game_paused and brake and absf(speed) > 5.0:
 			tire_level = maxf(tire_level, 0.34 + speed_factor * 0.34)
 		var tire_frequency := 300.0 + absf(speed) * 5.5
@@ -713,7 +713,7 @@ func _update_vehicle_audio(_delta: float) -> void:
 		tire_playback.push_buffer(tire_buffer)
 	var tire_active := game_started and not game_paused and tire_level > 0.0
 	# Keep tyre sound separate and audible over the quieter engine/exhaust layers.
-	tire_player.volume_db = lerpf(tire_player.volume_db, -5.0 if tire_active else -80.0, 0.28)
+	tire_player.volume_db = lerpf(tire_player.volume_db, -2.0 if tire_active else -80.0, 0.45)
 
 func _build_ui() -> void:
 	var layer := CanvasLayer.new()
@@ -816,20 +816,15 @@ func _physics_process(delta: float) -> void:
 	else:
 		speed = move_toward(speed, 0.0, DRAG * delta)
 
-	# Automatic emergency braking when the player is about to hit a traffic car.
-	for vehicle in traffic_vehicles:
-		var relative := vehicle.global_position - car.global_position
-		if abs(relative.x) < 2.25 and abs(relative.z) < 4.7 and abs(speed) > 0.0:
-			speed = move_toward(speed, 0.0, BRAKE_POWER * delta * 1.8)
 	var steer := float(steer_right) - float(steer_left)
 	if abs(speed) > 0.2:
 		heading -= steer * TURN_RATE * delta * clamp(abs(speed) / 8.0, 0.25, 1.0)
 	car.rotation.y = heading
 	car.rotation.z = lerpf(car.rotation.z, -steer * 0.045, 1.0 - exp(-5.5 * delta))
 	var forward := Vector3(sin(heading), 0, cos(heading))
+	# Arcade driving: move the player directly so traffic proximity cannot lock the car.
 	car.velocity = forward * speed
-	car.velocity.y = -1.0
-	car.move_and_slide()
+	car.global_position += forward * speed * delta
 	mission_distance += absf(speed) * delta
 	# Move the complete city together with the player at the loop seam.
 	# This preserves all relative positions and prevents the road/buildings ending abruptly.
