@@ -250,7 +250,7 @@ func _build_grid_intersection_markings() -> void:
 					var stripe_z := crossing_z + side * (8.0 + float(stripe) * 0.92)
 					_visual_box(self, "GridZebraStripe", Vector3(avenue_x, 0.082, stripe_z), Vector3(9.4, 0.028, 0.48), stripe_color)
 				_visual_box(self, "GridStopLine", Vector3(avenue_x, 0.084, crossing_z + side * 6.35), Vector3(10.2, 0.03, 0.16), line_color)
-			# East/west approaches: matching bars span the cross street.
+				# East/west approaches: matching bars span the cross street.
 				for stripe in range(5):
 					var stripe_x := avenue_x + side * (8.0 + float(stripe) * 0.92)
 					_visual_box(self, "GridZebraStripe", Vector3(stripe_x, 0.082, crossing_z), Vector3(0.48, 0.028, 9.4), stripe_color)
