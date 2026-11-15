@@ -224,15 +224,16 @@ func _build_grid_district() -> void:
 			building_seed += 1
 
 func _build_city_details() -> void:
-	# Crosswalks, intersection markings and pedestrian islands.
-	for z in [-72.0, -18.0, 36.0, 90.0]:
-		for i in range(12):
-			var x := -7.5 + float(i) * 1.35
-			_visual_box(self, "CrosswalkStripe", Vector3(x, 0.075, z), Vector3(0.78, 0.025, 3.4), Color(0.86, 0.88, 0.86))
-		_visual_box(self, "StopLineLeft", Vector3(-4.3, 0.078, z - 3.0), Vector3(7.8, 0.025, 0.16), Color(0.92, 0.91, 0.82))
-		_visual_box(self, "StopLineRight", Vector3(4.3, 0.078, z - 3.0), Vector3(7.8, 0.025, 0.16), Color(0.92, 0.91, 0.82))
-		_build_traffic_signal(-9.0, z - 4.5, true)
-		_build_traffic_signal(9.0, z - 4.5, false)
+	# Correct pedestrian crossings on the original central north-south road.
+	# Each zebra bar spans the road (X axis) and is narrow along traffic flow (Z axis).
+	for crossing_z in [-72.0, -18.0, 36.0, 90.0]:
+		for side in [-1.0, 1.0]:
+			for stripe in range(5):
+				var stripe_z: float = crossing_z + side * (7.0 + float(stripe) * 0.82)
+				_visual_box(self, "CrosswalkStripe", Vector3(0.0, 0.105, stripe_z), Vector3(15.8, 0.035, 0.42), Color(0.91, 0.93, 0.91))
+			_visual_box(self, "CentralStopLine", Vector3(0.0, 0.108, crossing_z + side * 6.15), Vector3(16.0, 0.035, 0.18), Color(0.96, 0.91, 0.76))
+		_build_traffic_signal(-9.0, crossing_z - 4.5, true)
+		_build_traffic_signal(9.0, crossing_z - 4.5, false)
 
 	# Street furniture, planted areas and parking bays.
 	for i in range(18):
