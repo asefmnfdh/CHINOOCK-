@@ -1069,13 +1069,78 @@ func _show_main_menu() -> void:
 	column.add_child(subtitle)
 	_add_menu_button(column, "شروع رانندگی آزاد", _start_free_drive)
 	_add_menu_button(column, "مأموریت سرعت – ۹۰ ثانیه", _start_time_trial)
-	_add_menu_button(column, "انتخاب رنگ خودرو", _cycle_car_paint)
+	_add_menu_button(column, "انتخاب رنگ خودرو", _show_paint_menu)
 	var note := Label.new()
 	note.text = "نسخه آزمایشی آفلاین • کنترل لمسی و کیبورد"
 	note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	note.add_theme_font_size_override("font_size", 15)
 	note.add_theme_color_override("font_color", Color(0.62, 0.72, 0.82))
 	column.add_child(note)
+
+
+func _show_paint_menu() -> void:
+	_clear_menu()
+	var overlay := ColorRect.new()
+	overlay.name = "MainMenuOverlay"
+	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay.color = Color(0.015, 0.025, 0.045, 0.94)
+	hud_root.add_child(overlay)
+	var panel := PanelContainer.new()
+	panel.set_anchors_preset(Control.PRESET_CENTER)
+	panel.position = Vector2(-300, -250)
+	panel.size = Vector2(600, 500)
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.025, 0.055, 0.09, 0.99)
+	style.border_color = Color(0.82, 0.58, 0.22, 1.0)
+	style.set_border_width_all(2)
+	style.set_corner_radius_all(22)
+	style.content_margin_left = 24
+	style.content_margin_right = 24
+	style.content_margin_top = 22
+	style.content_margin_bottom = 22
+	panel.add_theme_stylebox_override("panel", style)
+	overlay.add_child(panel)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 14)
+	panel.add_child(column)
+	var title := Label.new()
+	title.text = "رنگ بدنه خودرو را انتخاب کنید"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 28)
+	title.add_theme_color_override("font_color", Color(1.0, 0.76, 0.34))
+	column.add_child(title)
+	paint_status_label = Label.new()
+	paint_status_label.text = "رنگ انتخاب‌شده: " + car_paint_names[selected_car]
+	paint_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	paint_status_label.add_theme_font_size_override("font_size", 19)
+	column.add_child(paint_status_label)
+	var grid := GridContainer.new()
+	grid.columns = 5
+	grid.add_theme_constant_override("h_separation", 10)
+	grid.add_theme_constant_override("v_separation", 12)
+	column.add_child(grid)
+	for paint_index in range(car_paints.size()):
+		var paint_button := Button.new()
+		paint_button.text = car_paint_names[paint_index]
+		paint_button.custom_minimum_size = Vector2(96, 66)
+		paint_button.add_theme_font_size_override("font_size", 17)
+		var swatch := StyleBoxFlat.new()
+		swatch.bg_color = car_paints[paint_index]
+		swatch.set_corner_radius_all(10)
+		swatch.set_border_width_all(3 if paint_index == selected_car else 1)
+		swatch.border_color = Color(1.0, 0.82, 0.30) if paint_index == selected_car else Color(0.72, 0.78, 0.86)
+		paint_button.add_theme_stylebox_override("normal", swatch)
+		paint_button.add_theme_stylebox_override("hover", swatch)
+		paint_button.add_theme_stylebox_override("pressed", swatch)
+		paint_button.add_theme_color_override("font_color", Color.WHITE if paint_index in [0, 1, 2, 5, 6, 9] else Color(0.04, 0.05, 0.07))
+		grid.add_child(paint_button)
+		paint_button.pressed.connect(_select_car_paint.bind(paint_index))
+	var back_button := Button.new()
+	back_button.text = "بازگشت به منوی اصلی"
+	back_button.custom_minimum_size = Vector2(0, 58)
+	back_button.add_theme_font_size_override("font_size", 21)
+	column.add_child(back_button)
+	back_button.pressed.connect(_show_main_menu)
 
 func _add_menu_button(parent: VBoxContainer, caption: String, action: Callable) -> void:
 	var button := Button.new()
@@ -1143,8 +1208,8 @@ func _select_car_paint(paint_index: int) -> void:
 			part_color = paint.darkened(0.16)
 		part.material_override = _material(part_color, 0.78, 0.2)
 	if is_instance_valid(paint_status_label):
-		paint_status_label.text = "رنگ فعلی: " + car_paint_names[selected_car]
-	# Keep the menu open so the player can compare colors and change again.
+		paint_status_label.text = "رنگ انتخاب‌شده: " + car_paint_names[selected_car]
+	# Keep the palette open so another color can be tested immediately.
 
 func _toggle_pause() -> void:
 	if not game_started:
