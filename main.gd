@@ -148,10 +148,26 @@ func _build_world() -> void:
 	# Connected east-west avenues turn the old single corridor into a compact street grid.
 	for avenue_x in [-84.0, -56.0, -28.0, 28.0, 56.0, 84.0]:
 		_solid_box("NorthSouthAvenue", Vector3(avenue_x, -0.015, 0), Vector3(11.5, 0.11, 240), Color(0.075, 0.085, 0.105))
-		_visual_box(self, "AvenueCenterDash", Vector3(avenue_x, 0.06, 0), Vector3(0.13, 0.025, 240), Color(0.92, 0.82, 0.55))
+		# Break the center marking around intersections so it does not run through zebra crossings.
+		for dash_z in range(-112, 120, 12):
+			var clear_of_crossing := true
+			for crossing_z in [-72.0, -18.0, 36.0, 90.0]:
+				if absf(float(dash_z) - crossing_z) < 12.0:
+					clear_of_crossing = false
+					break
+			if clear_of_crossing:
+				_visual_box(self, "AvenueCenterDash", Vector3(avenue_x, 0.06, dash_z), Vector3(0.13, 0.025, 5.2), Color(0.92, 0.82, 0.55))
 	for cross_z in [-72.0, -18.0, 36.0, 90.0]:
 		_solid_box("EastWestStreet", Vector3(0, -0.01, cross_z), Vector3(240, 0.11, 11.5), Color(0.075, 0.085, 0.105))
-		_visual_box(self, "CrossStreetDash", Vector3(0, 0.06, cross_z), Vector3(240, 0.025, 0.13), Color(0.92, 0.82, 0.55))
+		# Break the center marking around each avenue crossing.
+		for dash_x in range(-112, 120, 12):
+			var clear_of_avenue := true
+			for avenue_x in [-84.0, -56.0, -28.0, 28.0, 56.0, 84.0]:
+				if absf(float(dash_x) - avenue_x) < 12.0:
+					clear_of_avenue = false
+					break
+			if clear_of_avenue:
+				_visual_box(self, "CrossStreetDash", Vector3(dash_x, 0.06, cross_z), Vector3(5.2, 0.025, 0.13), Color(0.92, 0.82, 0.55))
 		for side_z in [-7.2, 7.2]:
 			_solid_box("CrossStreetSidewalk", Vector3(0, 0.0, cross_z + side_z), Vector3(240, 0.22, 1.8), Color(0.55, 0.57, 0.57))
 	_visual_box(self, "RoadEdgeLeft", Vector3(-8.55, 0.08, 0), Vector3(0.12, 0.08, 240), Color(0.88, 0.84, 0.68))
@@ -237,24 +253,24 @@ func _build_city_details() -> void:
 
 
 func _build_grid_intersection_markings() -> void:
-	# Add zebra crossings and stop lines to the expanded street-grid intersections.
+	# Place compact zebra crossings immediately outside each intersection, fully on the road.
 	var avenues := [-84.0, -56.0, -28.0, 28.0, 56.0, 84.0]
 	var crossings := [-72.0, -18.0, 36.0, 90.0]
-	var stripe_color := Color(0.88, 0.90, 0.88)
+	var stripe_color := Color(0.91, 0.93, 0.91)
 	var line_color := Color(0.96, 0.91, 0.76)
 	for avenue_x in avenues:
 		for crossing_z in crossings:
-			# North/south approaches: white bars span the avenue.
 			for side in [-1.0, 1.0]:
+				# Crosswalk on the north/south approach: bars run across the avenue.
 				for stripe in range(5):
-					var stripe_z: float = crossing_z + side * (8.0 + float(stripe) * 0.92)
-					_visual_box(self, "GridZebraStripe", Vector3(avenue_x, 0.082, stripe_z), Vector3(9.4, 0.028, 0.48), stripe_color)
-				_visual_box(self, "GridStopLine", Vector3(avenue_x, 0.084, crossing_z + side * 6.35), Vector3(10.2, 0.03, 0.16), line_color)
-				# East/west approaches: matching bars span the cross street.
+					var stripe_z: float = crossing_z + side * (7.0 + float(stripe) * 0.82)
+					_visual_box(self, "GridZebraStripe", Vector3(avenue_x, 0.105, stripe_z), Vector3(10.2, 0.035, 0.42), stripe_color)
+				_visual_box(self, "GridStopLine", Vector3(avenue_x, 0.108, crossing_z + side * 6.15), Vector3(10.5, 0.035, 0.18), line_color)
+				# Crosswalk on the east/west approach: bars run across the cross street.
 				for stripe in range(5):
-					var stripe_x: float = avenue_x + side * (8.0 + float(stripe) * 0.92)
-					_visual_box(self, "GridZebraStripe", Vector3(stripe_x, 0.082, crossing_z), Vector3(0.48, 0.028, 9.4), stripe_color)
-				_visual_box(self, "GridStopLine", Vector3(avenue_x + side * 6.35, 0.084, crossing_z), Vector3(0.16, 0.03, 10.2), line_color)
+					var stripe_x: float = avenue_x + side * (7.0 + float(stripe) * 0.82)
+					_visual_box(self, "GridZebraStripe", Vector3(stripe_x, 0.105, crossing_z), Vector3(0.42, 0.035, 10.2), stripe_color)
+				_visual_box(self, "GridStopLine", Vector3(avenue_x + side * 6.15, 0.108, crossing_z), Vector3(0.18, 0.035, 10.5), line_color)
 
 
 func _build_grid_traffic_controls() -> void:
