@@ -237,9 +237,9 @@ func _build_city_details() -> void:
 			# Keep the entire zebra crossing beyond the side-walk edge (6.3..8.1 m).
 			# Bars are transverse to north/south traffic: long on X, short on Z.
 			for stripe in range(5):
-				var stripe_z: float = crossing_z + side * (8.65 + float(stripe) * 0.82)
-				_visual_box(self, "CrosswalkStripe", Vector3(0.0, 0.112, stripe_z), Vector3(15.8, 0.045, 0.48), Color(0.96, 0.97, 0.96))
-			_visual_box(self, "CentralStopLine", Vector3(0.0, 0.115, crossing_z + side * 8.25), Vector3(16.0, 0.045, 0.20), Color(0.96, 0.91, 0.76))
+				var stripe_z: float = crossing_z + side * (8.30 + float(stripe) * 0.78)
+				_visual_box(self, "CrosswalkStripe", Vector3(0.0, 0.112, stripe_z), Vector3(16.6, 0.045, 0.58), Color(0.96, 0.97, 0.96))
+			_visual_box(self, "CentralStopLine", Vector3(0.0, 0.115, crossing_z + side * 7.95), Vector3(16.0, 0.045, 0.20), Color(0.96, 0.91, 0.76))
 		_build_traffic_signal(-9.0, crossing_z - 4.5, true)
 		_build_traffic_signal(9.0, crossing_z - 4.5, false)
 
@@ -274,14 +274,14 @@ func _build_grid_intersection_markings() -> void:
 				# North/south approach: transverse bars span the avenue (X), spaced along Z.
 				# Start beyond the cross-street sidewalk so no stripe sits on the pavement.
 				for stripe in range(5):
-					var stripe_z: float = crossing_z + side * (8.65 + float(stripe) * 0.82)
-					_visual_box(self, "GridZebraStripe", Vector3(avenue_x, 0.112, stripe_z), Vector3(10.2, 0.045, 0.48), stripe_color)
-				_visual_box(self, "GridStopLine", Vector3(avenue_x, 0.115, crossing_z + side * 8.25), Vector3(10.5, 0.045, 0.20), line_color)
+					var stripe_z: float = crossing_z + side * (8.30 + float(stripe) * 0.78)
+					_visual_box(self, "GridZebraStripe", Vector3(avenue_x, 0.112, stripe_z), Vector3(10.8, 0.045, 0.58), stripe_color)
+				_visual_box(self, "GridStopLine", Vector3(avenue_x, 0.115, crossing_z + side * 7.95), Vector3(10.5, 0.045, 0.20), line_color)
 				# East/west approach: transverse bars span the cross street (Z), spaced along X.
 				for stripe in range(5):
-					var stripe_x: float = avenue_x + side * (8.65 + float(stripe) * 0.82)
-					_visual_box(self, "GridZebraStripe", Vector3(stripe_x, 0.112, crossing_z), Vector3(0.48, 0.045, 10.2), stripe_color)
-				_visual_box(self, "GridStopLine", Vector3(avenue_x + side * 8.25, 0.115, crossing_z), Vector3(0.20, 0.045, 10.5), line_color)
+					var stripe_x: float = avenue_x + side * (8.30 + float(stripe) * 0.78)
+					_visual_box(self, "GridZebraStripe", Vector3(stripe_x, 0.112, crossing_z), Vector3(0.58, 0.045, 10.8), stripe_color)
+				_visual_box(self, "GridStopLine", Vector3(avenue_x + side * 7.95, 0.115, crossing_z), Vector3(0.20, 0.045, 10.5), line_color)
 
 
 func _build_grid_traffic_controls() -> void:
