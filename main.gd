@@ -142,8 +142,19 @@ func _build_world() -> void:
 
 	_solid_box("CityGround", Vector3(0, -0.65, 0), Vector3(260, 1, 260), Color(0.16, 0.31, 0.19))
 	_solid_box("AsphaltRoad", Vector3(0, -0.02, 0), Vector3(17, 0.12, 240), Color(0.075, 0.085, 0.105))
-	_solid_box("SidewalkLeft", Vector3(-9.7, 0.0, 0), Vector3(2.2, 0.24, 240), Color(0.58, 0.60, 0.60))
-	_solid_box("SidewalkRight", Vector3(9.7, 0.0, 0), Vector3(2.2, 0.24, 240), Color(0.58, 0.60, 0.60))
+	# Main-road sidewalks are split into blocks so they stop at every cross street.
+	# Never let the pavement continue across the perpendicular carriageway.
+	for sidewalk_x in [-9.7, 9.7]:
+		var sidewalk_start := -120.0
+		for crossing_z in [-72.0, -18.0, 36.0, 90.0]:
+			var sidewalk_end: float = crossing_z - 6.5
+			if sidewalk_end > sidewalk_start:
+				var sidewalk_length: float = sidewalk_end - sidewalk_start
+				_solid_box("MainRoadSidewalkSegment", Vector3(sidewalk_x, 0.0, sidewalk_start + sidewalk_length * 0.5), Vector3(2.2, 0.24, sidewalk_length), Color(0.58, 0.60, 0.60))
+			sidewalk_start = crossing_z + 6.5
+		if sidewalk_start < 120.0:
+			var sidewalk_length: float = 120.0 - sidewalk_start
+			_solid_box("MainRoadSidewalkSegment", Vector3(sidewalk_x, 0.0, sidewalk_start + sidewalk_length * 0.5), Vector3(2.2, 0.24, sidewalk_length), Color(0.58, 0.60, 0.60))
 
 	# Connected east-west avenues turn the old single corridor into a compact street grid.
 	for avenue_x in [-84.0, -56.0, -28.0, 28.0, 56.0, 84.0]:
@@ -288,11 +299,7 @@ func _build_grid_intersection_markings() -> void:
 					var stripe_z: float = crossing_z + side * (8.30 + float(stripe) * 0.78)
 					_visual_box(self, "GridZebraStripe", Vector3(avenue_x, 0.112, stripe_z), Vector3(10.8, 0.045, 0.58), stripe_color)
 				_visual_box(self, "GridStopLine", Vector3(avenue_x, 0.115, crossing_z + side * 7.95), Vector3(10.5, 0.045, 0.20), line_color)
-				# Keep zebra bars horizontal across the visible road, not vertical in the driving view.
-				for stripe in range(5):
-					var stripe_z_horizontal: float = crossing_z + side * (8.30 + float(stripe) * 0.78)
-					_visual_box(self, "GridZebraStripe", Vector3(avenue_x, 0.112, stripe_z_horizontal), Vector3(10.8, 0.045, 0.58), stripe_color)
-				_visual_box(self, "GridStopLine", Vector3(avenue_x, 0.115, crossing_z + side * 7.95), Vector3(10.5, 0.045, 0.20), line_color)
+
 
 
 func _build_grid_traffic_controls() -> void:
