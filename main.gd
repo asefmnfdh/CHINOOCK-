@@ -260,7 +260,7 @@ func _build_city_details() -> void:
 			# Bars are transverse to north/south traffic: long on X, short on Z.
 			for stripe in range(5):
 				var stripe_z: float = crossing_z + side * (8.30 + float(stripe) * 0.78)
-				_visual_box(self, "CrosswalkStripe", Vector3(0.0, 0.112, stripe_z), Vector3(16.6, 0.045, 0.58), Color(0.96, 0.97, 0.96))
+				_visual_box(self, "CrosswalkStripe", Vector3(0.0, 0.112, stripe_z), Vector3(16.6, 0.045, 0.85), Color(0.96, 0.97, 0.96))
 			_visual_box(self, "CentralStopLine", Vector3(0.0, 0.115, crossing_z + side * 7.95), Vector3(16.0, 0.045, 0.20), Color(0.96, 0.91, 0.76))
 		_build_traffic_signal(-9.0, crossing_z - 4.5, true)
 		_build_traffic_signal(9.0, crossing_z - 4.5, false)
@@ -275,7 +275,8 @@ func _build_city_details() -> void:
 		if i % 4 == 1:
 			_build_bin(side * 9.9, z + 2.0)
 		if i % 5 == 0:
-			_build_parked_car(side * 7.15, z - 3.0, i)
+			# Keep parked vehicles in the roadside parking strip, never in the driving lanes.
+			_build_parked_car(side * 13.0, z - 3.0, i)
 
 	# Decorative road arrows and lane guidance.
 	for z in [-48.0, 12.0, 72.0]:
@@ -297,7 +298,7 @@ func _build_grid_intersection_markings() -> void:
 				# Start beyond the cross-street sidewalk so no stripe sits on the pavement.
 				for stripe in range(5):
 					var stripe_z: float = crossing_z + side * (8.30 + float(stripe) * 0.78)
-					_visual_box(self, "GridZebraStripe", Vector3(avenue_x, 0.112, stripe_z), Vector3(10.8, 0.045, 0.58), stripe_color)
+					_visual_box(self, "GridZebraStripe", Vector3(avenue_x, 0.112, stripe_z), Vector3(10.8, 0.045, 0.85), stripe_color)
 				_visual_box(self, "GridStopLine", Vector3(avenue_x, 0.115, crossing_z + side * 7.95), Vector3(10.5, 0.045, 0.20), line_color)
 
 
@@ -652,10 +653,12 @@ func _build_urban_details() -> void:
 		post.position = Vector3(side * 10.65, 1.2, z)
 		city_root.add_child(post)
 		_visual_box(self, "StreetNameSign", Vector3(side * 10.65, 2.25, z), Vector3(0.12, 0.42, 1.5), Color(0.035, 0.22, 0.18), 0.15, 0.45)
+	# Parking bays are outside the asphalt carriageway, beside the sidewalks.
 	for z in [-94.0, -40.0, 14.0, 68.0]:
-		for i in range(3):
-			var x := 5.2 + float(i) * 1.05
-			_visual_box(self, "ParkingBayLine", Vector3(x, 0.085, z), Vector3(0.055, 0.02, 5.0), Color(0.76, 0.80, 0.79))
+		for side in [-1.0, 1.0]:
+			for i in range(3):
+				var x := side * (11.8 + float(i) * 1.05)
+				_visual_box(self, "ParkingBayLine", Vector3(x, 0.085, z), Vector3(0.055, 0.02, 5.0), Color(0.76, 0.80, 0.79))
 
 func _build_tree(x: float, z: float, scale_factor: float) -> void:
 	var trunk := MeshInstance3D.new()
