@@ -285,21 +285,24 @@ func _build_city_details() -> void:
 
 
 func _build_grid_intersection_markings() -> void:
-	# Place compact zebra crossings immediately outside each intersection, fully on the road.
+	# Two correctly oriented zebra crossings at each grid intersection.
 	var avenues := [-84.0, -56.0, -28.0, 28.0, 56.0, 84.0]
 	var crossings := [-72.0, -18.0, 36.0, 90.0]
-	var stripe_color := Color(0.91, 0.93, 0.91)
+	var stripe_color := Color(0.96, 0.97, 0.96)
 	var line_color := Color(0.96, 0.91, 0.76)
 	for avenue_x in avenues:
 		for crossing_z in crossings:
 			for side in [-1.0, 1.0]:
-				# Crosswalk on the north/south approach: bars run across the avenue.
-				# North/south approach: transverse bars span the avenue (X), spaced along Z.
-				# Start beyond the cross-street sidewalk so no stripe sits on the pavement.
+				# Cross the north/south avenue: bars lie on the east/west road.
 				for stripe in range(5):
-					var stripe_z: float = crossing_z + side * (8.30 + float(stripe) * 0.78)
-					_visual_box(self, "GridZebraStripe", Vector3(avenue_x, 0.112, stripe_z), Vector3(10.8, 0.045, 0.85), stripe_color)
-				_visual_box(self, "GridStopLine", Vector3(avenue_x, 0.115, crossing_z + side * 7.95), Vector3(10.5, 0.045, 0.20), line_color)
+					var stripe_x: float = avenue_x + side * (6.35 + float(stripe) * 0.82)
+					_visual_box(self, "GridZebraStripe", Vector3(stripe_x, 0.112, crossing_z), Vector3(0.78, 0.045, 10.8), stripe_color)
+				_visual_box(self, "GridStopLine", Vector3(avenue_x + side * 6.05, 0.115, crossing_z), Vector3(0.18, 0.045, 10.5), line_color)
+				# Cross the east/west street: bars span the north/south avenue.
+				for stripe in range(5):
+					var stripe_z: float = crossing_z + side * (6.35 + float(stripe) * 0.82)
+					_visual_box(self, "GridZebraStripe", Vector3(avenue_x, 0.112, stripe_z), Vector3(10.8, 0.045, 0.78), stripe_color)
+				_visual_box(self, "GridStopLine", Vector3(avenue_x, 0.115, crossing_z + side * 6.05), Vector3(10.5, 0.045, 0.18), line_color)
 
 
 
