@@ -657,7 +657,7 @@ func _build_urban_details() -> void:
 	for z in [-94.0, -40.0, 14.0, 68.0]:
 		for side in [-1.0, 1.0]:
 			for i in range(3):
-				var x := side * (11.8 + float(i) * 1.05)
+				var x: float = side * (11.8 + float(i) * 1.05)
 				_visual_box(self, "ParkingBayLine", Vector3(x, 0.085, z), Vector3(0.055, 0.02, 5.0), Color(0.76, 0.80, 0.79))
 
 func _build_tree(x: float, z: float, scale_factor: float) -> void:
