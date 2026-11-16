@@ -330,4 +330,13 @@ func _build_road_sign(x: float, z: float, caption: String, board_color: Color) -
 	board.material_override = _material(board_color, 0.05, 0.4)
 
 	# Duplicate the lettering on both faces so the sign can be read from either direction.
-	for face in [-1.0, 1.0]:
+	for face in [-1.0, 1.0]:		var label := Label3D.new()
+		label.text = caption
+		label.font_size = 64
+		label.pixel_size = 0.008
+		label.modulate = Color(0.07, 0.09, 0.11) if caption != "STOP" else Color.WHITE
+		label.position = Vector3(x, 2.55, z + face * 0.09)
+		label.rotation.y = 0.0 if face > 0.0 else PI
+		label.outline_size = 8
+		label.outline_modulate = Color(0.95, 0.95, 0.95) if caption == "50" else Color(0.18, 0.02, 0.02)
+		city_root.add_child(label)
