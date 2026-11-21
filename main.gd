@@ -1292,14 +1292,14 @@ func _create_city_map_texture() -> Texture2D:
 	for road_x in [78, 172, 266, 360, 454, 548, 642]:
 		for y in range(0, 420, 28):
 			for dash in range(9):
-				var px := road_x
-				var py := y + dash
+				var px: int = int(road_x)
+				var py: int = y + dash
 				if py < 420:
 					map_image.set_pixel(px, py, Color(0.83, 0.78, 0.61, 1.0))
 	for road_y in [62, 160, 258, 356]:
 		for x in range(0, 720, 28):
 			for dash in range(9):
-				var px := x + dash
+				var px: int = x + dash
 				if px < 720:
 					map_image.set_pixel(px, road_y, Color(0.83, 0.78, 0.61, 1.0))
 	return ImageTexture.create_from_image(map_image)
