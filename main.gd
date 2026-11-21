@@ -34,6 +34,7 @@ var timer_label: Label
 var distance_label: Label
 var pause_button: Button
 var selected_car := 0
+var sound_enabled := true
 var car_paints: Array[Color] = [
 	Color(0.025, 0.24, 0.48), Color(0.62, 0.045, 0.035),
 	Color(0.035, 0.045, 0.06), Color(0.92, 0.92, 0.88),
@@ -839,7 +840,7 @@ func _update_vehicle_audio(_delta: float) -> void:
 			engine_buffer[i] = Vector2(sample * amplitude, sample * amplitude)
 			engine_phase = fmod(engine_phase + TAU * frequency / AUDIO_RATE, TAU)
 		engine_playback.push_buffer(engine_buffer)
-	engine_player.volume_db = lerpf(engine_player.volume_db, -20.0 if game_started else -80.0, 0.12)
+	engine_player.volume_db = lerpf(engine_player.volume_db, -20.0 if game_started and sound_enabled else -80.0, 0.12)
 
 	# Independent exhaust channel: low combustion pulses when accelerating.
 	var exhaust_frames := exhaust_playback.get_frames_available()
@@ -858,7 +859,7 @@ func _update_vehicle_audio(_delta: float) -> void:
 			exhaust_buffer[i] = Vector2(sample, sample)
 			exhaust_phase = fmod(exhaust_phase + TAU * exhaust_frequency / AUDIO_RATE, TAU)
 		exhaust_playback.push_buffer(exhaust_buffer)
-		exhaust_player.volume_db = lerpf(exhaust_player.volume_db, -10.0 if game_started and not game_paused and throttle else -80.0, 0.18)
+		exhaust_player.volume_db = lerpf(exhaust_player.volume_db, -10.0 if game_started and not game_paused and throttle and sound_enabled else -80.0, 0.18)
 
 	var tire_frames := tire_playback.get_frames_available()
 	var tire_level := 0.0
@@ -885,7 +886,7 @@ func _update_vehicle_audio(_delta: float) -> void:
 		tire_playback.push_buffer(tire_buffer)
 	var tire_active := game_started and not game_paused and tire_level > 0.0
 	# Keep tyre sound separate and audible over the quieter engine/exhaust layers.
-	tire_player.volume_db = lerpf(tire_player.volume_db, 0.0 if tire_active else -80.0, 0.55)
+	tire_player.volume_db = lerpf(tire_player.volume_db, 0.0 if tire_active and sound_enabled else -80.0, 0.55)
 
 func _build_ui() -> void:
 	var layer := CanvasLayer.new()
@@ -1093,55 +1094,279 @@ func _physics_process(delta: float) -> void:
 
 
 func _show_main_menu() -> void:
-	# Remove every previous menu/result layer before creating a fresh interactive menu.
 	_clear_menu()
 	game_started = false
 	game_paused = false
 	var overlay := ColorRect.new()
 	overlay.name = "MainMenuOverlay"
 	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	overlay.color = Color(0.015, 0.025, 0.045, 0.90)
+	overlay.color = Color(0.008, 0.018, 0.035, 0.58)
+	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hud_root.add_child(overlay)
+
+	var panel := PanelContainer.new()
+	panel.set_anchors_preset(Control.PRESET_CENTER)
+	panel.position = Vector2(-570, -335)
+	panel.size = Vector2(1140, 670)
+	var panel_style := StyleBoxFlat.new()
+	panel_style.bg_color = Color(0.018, 0.042, 0.068, 0.98)
+	panel_style.border_color = Color(0.32, 0.48, 0.61, 0.9)
+	panel_style.set_border_width_all(2)
+	panel_style.set_corner_radius_all(24)
+	panel_style.content_margin_left = 30
+	panel_style.content_margin_right = 30
+	panel_style.content_margin_top = 20
+	panel_style.content_margin_bottom = 18
+	panel.add_theme_stylebox_override("panel", panel_style)
+	overlay.add_child(panel)
+
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 9)
+	panel.add_child(column)
+
+	var header := HBoxContainer.new()
+	header.custom_minimum_size = Vector2(0, 48)
+	column.add_child(header)
+	var title := Label.new()
+	title.text = "CHINOCK"
+	title.add_theme_font_size_override("font_size", 42)
+	title.add_theme_color_override("font_color", Color(0.96, 0.76, 0.40))
+	header.add_child(title)
+	var header_gap := Control.new()
+	header_gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	header.add_child(header_gap)
+	var badge := Label.new()
+	badge.text = "OPEN WORLD  •  DRIVING"
+	badge.add_theme_font_size_override("font_size", 16)
+	badge.add_theme_color_override("font_color", Color(0.68, 0.79, 0.88))
+	header.add_child(badge)
+
+	# A live 3D preview is built from the current player-car meshes.
+	var hero := PanelContainer.new()
+	hero.custom_minimum_size = Vector2(0, 218)
+	var hero_style := StyleBoxFlat.new()
+	hero_style.bg_color = Color(0.025, 0.065, 0.095, 1.0)
+	hero_style.set_corner_radius_all(18)
+	hero.add_theme_stylebox_override("panel", hero_style)
+	column.add_child(hero)
+	var preview_container := SubViewportContainer.new()
+	preview_container.stretch = true
+	preview_container.custom_minimum_size = Vector2(0, 218)
+	preview_container.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hero.add_child(preview_container)
+	var preview := SubViewport.new()
+	preview.size = Vector2i(1080, 420)
+	preview.own_world_3d = true
+	preview.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	preview_container.add_child(preview)
+	var preview_scene := Node3D.new()
+	preview.add_child(preview_scene)
+	var preview_environment := WorldEnvironment.new()
+	var preview_env := Environment.new()
+	preview_env.background_mode = Environment.BG_COLOR
+	preview_env.background_color = Color(0.025, 0.065, 0.095)
+	preview_env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	preview_env.ambient_light_color = Color(0.68, 0.78, 0.92)
+	preview_env.ambient_light_energy = 0.9
+	preview_environment.environment = preview_env
+	preview_scene.add_child(preview_environment)
+	var preview_sun := DirectionalLight3D.new()
+	preview_sun.rotation_degrees = Vector3(-32, -28, 0)
+	preview_sun.light_energy = 1.5
+	preview_scene.add_child(preview_sun)
+	for car_part in car.get_children():
+		if car_part is MeshInstance3D:
+			preview_scene.add_child(car_part.duplicate())
+	var preview_camera := Camera3D.new()
+	preview_camera.position = Vector3(5.3, 3.0, -7.4)
+	preview_camera.fov = 43.0
+	preview_scene.add_child(preview_camera)
+	preview_camera.look_at(Vector3(0, 0.9, 0), Vector3.UP)
+	preview_camera.current = true
+
+	var welcome := Label.new()
+	welcome.text = "به شهر خوش آمدید"
+	welcome.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	welcome.add_theme_font_size_override("font_size", 26)
+	welcome.add_theme_color_override("font_color", Color(0.96, 0.97, 1.0))
+	column.add_child(welcome)
+	var description := Label.new()
+	description.text = "رانندگی آزاد در شهری بزرگ با ترافیک، عابران پیاده و محیط واقع‌گرایانه"
+	description.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	description.add_theme_font_size_override("font_size", 17)
+	description.add_theme_color_override("font_color", Color(0.68, 0.77, 0.86))
+	column.add_child(description)
+
+	_add_menu_button(column, "شروع رانندگی", _start_free_drive)
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 12)
+	grid.add_theme_constant_override("v_separation", 8)
+	column.add_child(grid)
+	_add_menu_button(grid, "انتخاب خودرو", _show_paint_menu)
+	_add_menu_button(grid, "نقشه شهر", _show_city_map_menu)
+	_add_menu_button(grid, "تنظیمات", _show_settings_menu)
+	_add_menu_button(grid, "تنظیم صدا: " + ("روشن" if sound_enabled else "خاموش"), _toggle_sound)
+	var mission_button := Button.new()
+	mission_button.text = "مأموریت سرعت  •  ۹۰ ثانیه"
+	mission_button.custom_minimum_size = Vector2(0, 42)
+	mission_button.add_theme_font_size_override("font_size", 17)
+	mission_button.add_theme_color_override("font_color", Color(0.90, 0.80, 0.60))
+	column.add_child(mission_button)
+	mission_button.pressed.connect(_start_time_trial)
+
+	var footer := Label.new()
+	footer.text = "CHINOCK  •  OPEN WORLD DRIVING"
+	footer.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	footer.add_theme_font_size_override("font_size", 12)
+	footer.add_theme_color_override("font_color", Color(0.43, 0.55, 0.66))
+	column.add_child(footer)
+
+
+func _show_city_map_menu() -> void:
+	_clear_menu()
+	var overlay := ColorRect.new()
+	overlay.name = "MainMenuOverlay"
+	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay.color = Color(0.008, 0.018, 0.035, 0.72)
 	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	hud_root.add_child(overlay)
 	var panel := PanelContainer.new()
 	panel.set_anchors_preset(Control.PRESET_CENTER)
-	panel.position = Vector2(-300, -250)
-	panel.size = Vector2(600, 500)
+	panel.position = Vector2(-430, -300)
+	panel.size = Vector2(860, 600)
 	var style := StyleBoxFlat.new()
-	style.bg_color = Color(0.025, 0.055, 0.09, 0.97)
-	style.border_color = Color(0.82, 0.58, 0.22, 1.0)
+	style.bg_color = Color(0.018, 0.042, 0.068, 0.99)
+	style.border_color = Color(0.32, 0.48, 0.61)
 	style.set_border_width_all(2)
 	style.set_corner_radius_all(22)
-	style.content_margin_left = 28
-	style.content_margin_right = 28
-	style.content_margin_top = 24
-	style.content_margin_bottom = 24
+	style.content_margin_left = 26
+	style.content_margin_right = 26
+	style.content_margin_top = 22
+	style.content_margin_bottom = 22
 	panel.add_theme_stylebox_override("panel", style)
 	overlay.add_child(panel)
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 14)
 	panel.add_child(column)
 	var title := Label.new()
-	title.text = "CHINOCK"
+	title.text = "نقشه شهر CHINOCK"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 48)
-	title.add_theme_color_override("font_color", Color(1.0, 0.76, 0.34))
+	title.add_theme_font_size_override("font_size", 32)
+	title.add_theme_color_override("font_color", Color(0.96, 0.76, 0.40))
 	column.add_child(title)
-	var subtitle := Label.new()
-	subtitle.text = "شهر زنده | رانندگی آزاد و مأموریت‌ها"
-	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	subtitle.add_theme_font_size_override("font_size", 20)
-	subtitle.add_theme_color_override("font_color", Color(0.82, 0.89, 0.98))
-	column.add_child(subtitle)
-	_add_menu_button(column, "شروع رانندگی آزاد", _start_free_drive)
-	_add_menu_button(column, "مأموریت سرعت – ۹۰ ثانیه", _start_time_trial)
-	_add_menu_button(column, "انتخاب رنگ خودرو", _show_paint_menu)
-	var note := Label.new()
-	note.text = "نسخه آزمایشی آفلاین • کنترل لمسی و کیبورد"
-	note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	note.add_theme_font_size_override("font_size", 15)
-	note.add_theme_color_override("font_color", Color(0.62, 0.72, 0.82))
-	column.add_child(note)
+	var map_view := TextureRect.new()
+	map_view.custom_minimum_size = Vector2(0, 390)
+	map_view.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	map_view.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	map_view.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	map_view.texture = _create_city_map_texture()
+	column.add_child(map_view)
+	var details := Label.new()
+	details.text = "۷ مسیر شمالی–جنوبی  •  ۴ خیابان شرقی–غربی  •  تقاطع‌ها و خط‌کشی عابر پیاده"
+	details.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	details.add_theme_font_size_override("font_size", 17)
+	details.add_theme_color_override("font_color", Color(0.76, 0.84, 0.91))
+	column.add_child(details)
+	_add_menu_button(column, "بازگشت به منوی اصلی", _show_main_menu)
+
+
+func _create_city_map_texture() -> Texture2D:
+	var map_image := Image.create(720, 420, false, Image.FORMAT_RGBA8)
+	map_image.fill(Color(0.055, 0.13, 0.105, 1.0))
+	var road_color := Color(0.12, 0.15, 0.19, 1.0)
+	var edge_color := Color(0.34, 0.39, 0.39, 1.0)
+	for x in range(720):
+		for y in range(420):
+			var on_road := false
+			for road_x in [78, 172, 266, 360, 454, 548, 642]:
+				if abs(x - road_x) <= 10:
+					on_road = true
+			for road_y in [62, 160, 258, 356]:
+				if abs(y - road_y) <= 10:
+					on_road = true
+			if on_road:
+				map_image.set_pixel(x, y, road_color)
+			elif x % 94 < 3 or y % 98 < 3:
+				map_image.set_pixel(x, y, edge_color)
+	for road_x in [78, 172, 266, 360, 454, 548, 642]:
+		for y in range(0, 420, 28):
+			for dash in range(9):
+				var px := road_x
+				var py := y + dash
+				if py < 420:
+					map_image.set_pixel(px, py, Color(0.83, 0.78, 0.61, 1.0))
+	for road_y in [62, 160, 258, 356]:
+		for x in range(0, 720, 28):
+			for dash in range(9):
+				var px := x + dash
+				if px < 720:
+					map_image.set_pixel(px, road_y, Color(0.83, 0.78, 0.61, 1.0))
+	return ImageTexture.create_from_image(map_image)
+
+
+func _show_settings_menu() -> void:
+	_clear_menu()
+	var overlay := ColorRect.new()
+	overlay.name = "MainMenuOverlay"
+	overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	overlay.color = Color(0.008, 0.018, 0.035, 0.72)
+	overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hud_root.add_child(overlay)
+	var panel := PanelContainer.new()
+	panel.set_anchors_preset(Control.PRESET_CENTER)
+	panel.position = Vector2(-360, -260)
+	panel.size = Vector2(720, 520)
+	var style := StyleBoxFlat.new()
+	style.bg_color = Color(0.018, 0.042, 0.068, 0.99)
+	style.border_color = Color(0.32, 0.48, 0.61)
+	style.set_border_width_all(2)
+	style.set_corner_radius_all(22)
+	style.content_margin_left = 28
+	style.content_margin_right = 28
+	style.content_margin_top = 26
+	style.content_margin_bottom = 26
+	panel.add_theme_stylebox_override("panel", style)
+	overlay.add_child(panel)
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", 18)
+	panel.add_child(column)
+	var title := Label.new()
+	title.text = "تنظیمات بازی"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 32)
+	title.add_theme_color_override("font_color", Color(0.96, 0.76, 0.40))
+	column.add_child(title)
+	var sound_info := Label.new()
+	sound_info.text = "صدای موتور، اگزوز و لاستیک: " + ("فعال" if sound_enabled else "غیرفعال")
+	sound_info.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	sound_info.add_theme_font_size_override("font_size", 21)
+	sound_info.add_theme_color_override("font_color", Color(0.86, 0.91, 0.96))
+	column.add_child(sound_info)
+	_add_menu_button(column, "تغییر وضعیت صدا", _toggle_sound_settings)
+	var camera_info := Label.new()
+	camera_info.text = "دوربین سوم‌شخص: تعقیب نرم خودرو"
+	camera_info.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	camera_info.add_theme_font_size_override("font_size", 19)
+	camera_info.add_theme_color_override("font_color", Color(0.72, 0.81, 0.89))
+	column.add_child(camera_info)
+	var graphics_info := Label.new()
+	graphics_info.text = "گرافیک: واقع‌گرایانه و بهینه برای اندروید"
+	graphics_info.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	graphics_info.add_theme_font_size_override("font_size", 19)
+	graphics_info.add_theme_color_override("font_color", Color(0.72, 0.81, 0.89))
+	column.add_child(graphics_info)
+	_add_menu_button(column, "بازگشت به منوی اصلی", _show_main_menu)
+
+
+func _toggle_sound() -> void:
+	sound_enabled = not sound_enabled
+	_show_main_menu()
+
+
+func _toggle_sound_settings() -> void:
+	sound_enabled = not sound_enabled
+	_show_settings_menu()
 
 
 func _show_paint_menu() -> void:
@@ -1208,11 +1433,11 @@ func _show_paint_menu() -> void:
 	column.add_child(back_button)
 	back_button.pressed.connect(_show_main_menu)
 
-func _add_menu_button(parent: VBoxContainer, caption: String, action: Callable) -> void:
+func _add_menu_button(parent: Control, caption: String, action: Callable) -> void:
 	var button := Button.new()
 	button.text = caption
-	button.custom_minimum_size = Vector2(0, 62)
-	button.add_theme_font_size_override("font_size", 23)
+	button.custom_minimum_size = Vector2(0, 58)
+	button.add_theme_font_size_override("font_size", 20)
 	var normal := StyleBoxFlat.new()
 	normal.bg_color = Color(0.08, 0.16, 0.23, 1.0)
 	normal.border_color = Color(0.72, 0.48, 0.19, 0.9)
