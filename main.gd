@@ -89,6 +89,27 @@ func _visual_box(parent: Node3D, n: String, pos: Vector3, size: Vector3, color: 
 	parent.add_child(mesh)
 	return mesh
 
+func _make_wet_asphalt_material(base_color: Color) -> StandardMaterial3D:
+	var material := _material(base_color, 0.16, 0.24)
+	material.metallic_specular = 0.55
+	material.roughness = 0.28
+	var noise := FastNoiseLite.new()
+	noise.seed = 7319
+	noise.noise_type = FastNoiseLite.TYPE_CELLULAR
+	noise.frequency = 0.075
+	noise.fractal_octaves = 3
+	var image := noise.get_image(256, 256, false, true, true)
+	# Convert the noise to subtle charcoal asphalt grain with scattered wet patches.
+	for y in range(image.get_height()):
+		for x in range(image.get_width()):
+			var value := image.get_pixel(x, y).r
+			var grain := clampf(0.70 + value * 0.42, 0.42, 1.0)
+			image.set_pixel(x, y, Color(grain, grain, grain, 1.0))
+	var texture := ImageTexture.create_from_image(image)
+	material.albedo_texture = texture
+	material.uv1_scale = Vector3(18.0, 18.0, 1.0)
+	return material
+
 func _solid_box(n: String, pos: Vector3, size: Vector3, color: Color) -> void:
 	var body := StaticBody3D.new()
 	body.name = n
@@ -97,7 +118,10 @@ func _solid_box(n: String, pos: Vector3, size: Vector3, color: Color) -> void:
 	var shape_mesh := BoxMesh.new()
 	shape_mesh.size = size
 	mesh.mesh = shape_mesh
-	mesh.material_override = _material(color)
+	if n == "AsphaltRoad" or n == "EastWestStreet" or n == "NorthSouthAvenue":
+		mesh.material_override = _make_wet_asphalt_material(color)
+	else:
+		mesh.material_override = _material(color)
 	body.add_child(mesh)
 	var collision := CollisionShape3D.new()
 	var shape := BoxShape3D.new()
@@ -112,27 +136,35 @@ func _build_world() -> void:
 	env.background_mode = Environment.BG_SKY
 	var sky := Sky.new()
 	var sky_mat := ProceduralSkyMaterial.new()
-	sky_mat.sky_top_color = Color(0.12, 0.30, 0.53)
-	sky_mat.sky_horizon_color = Color(0.60, 0.76, 0.91)
-	sky_mat.ground_bottom_color = Color(0.12, 0.16, 0.14)
-	sky_mat.ground_horizon_color = Color(0.42, 0.49, 0.48)
+	# Warm late-afternoon skyline inspired by the reference driving scene.
+	sky_mat.sky_top_color = Color(0.16, 0.20, 0.32)
+	sky_mat.sky_horizon_color = Color(1.0, 0.53, 0.29)
+	sky_mat.ground_bottom_color = Color(0.055, 0.065, 0.085)
+	sky_mat.ground_horizon_color = Color(0.52, 0.30, 0.23)
+	sky_mat.sun_angle_max = 18.0
+	sky_mat.sun_curve = 0.12
 	sky.sky_material = sky_mat
 	env.sky = sky
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.ambient_light_color = Color(0.72, 0.78, 0.88)
-	env.ambient_light_energy = 0.95
+	env.ambient_light_color = Color(0.78, 0.57, 0.48)
+	env.ambient_light_energy = 0.82
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	env.tonemap_exposure = 1.08
+	env.glow_enabled = true
+	env.glow_intensity = 0.28
+	env.glow_strength = 0.65
 	env.fog_enabled = true
-	env.fog_light_color = Color(0.53, 0.66, 0.77)
-	env.fog_density = 0.0018
+	env.fog_light_color = Color(0.68, 0.43, 0.34)
+	env.fog_density = 0.00125
 	world_env.environment = env
 	add_child(world_env)
 
 	var sun := DirectionalLight3D.new()
-	sun.rotation_degrees = Vector3(-48, -30, 0)
-	sun.light_energy = 1.35
+	sun.rotation_degrees = Vector3(-13, -24, 0)
+	sun.light_color = Color(1.0, 0.72, 0.52)
+	sun.light_energy = 1.65
 	sun.shadow_enabled = true
-	sun.directional_shadow_max_distance = 95.0
+	sun.directional_shadow_max_distance = 110.0
 	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
 	add_child(sun)
 
@@ -738,6 +770,15 @@ func _build_car() -> void:
 	_visual_box(car, "RearSpoiler", Vector3(0, 0.91, -1.91), Vector3(2.05, 0.10, 0.32), Color(0.018, 0.035, 0.06), 0.72, 0.25)
 	for side in [-1.0, 1.0]:
 		_visual_box(car, "SpoilerSupport", Vector3(side * 0.62, 0.75, -1.82), Vector3(0.07, 0.28, 0.08), Color(0.02, 0.025, 0.035))
+
+	# Fine exterior details catch the low sunset light and break up the blocky silhouette.
+	for side in [-1.0, 1.0]:
+		_visual_box(car, "LowerSideSkirt", Vector3(side * 1.08, -0.015, -0.02), Vector3(0.12, 0.20, 2.55), Color(0.012, 0.018, 0.028), 0.55, 0.28)
+		_visual_box(car, "HoodCrease", Vector3(side * 0.73, 0.655, 1.18), Vector3(0.035, 0.018, 1.12), Color(0.10, 0.22, 0.34), 0.75, 0.24)
+		_visual_box(car, "RearReflector", Vector3(side * 0.98, 0.34, -2.17), Vector3(0.22, 0.055, 0.035), Color(0.42, 0.025, 0.018), 0.1, 0.24)
+		_visual_box(car, "ExhaustTip", Vector3(side * 0.72, -0.02, -2.23), Vector3(0.34, 0.16, 0.20), Color(0.36, 0.40, 0.44), 0.92, 0.18)
+	_visual_box(car, "FrontAirIntake", Vector3(0, 0.20, 2.235), Vector3(0.88, 0.12, 0.035), Color(0.005, 0.008, 0.012), 0.25, 0.42)
+	_visual_box(car, "RearDiffuser", Vector3(0, -0.08, -2.18), Vector3(1.15, 0.16, 0.16), Color(0.018, 0.025, 0.035), 0.65, 0.3)
 
 	# Four detailed wheels with alloy rims.
 	for x in [-1.13, 1.13]:
